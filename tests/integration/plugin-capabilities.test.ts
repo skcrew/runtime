@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Runtime } from './runtime.js';
-import type { PluginDefinition, RuntimeContext } from './types.js';
+import { Runtime } from '../../src/runtime.js';
+import type { PluginDefinition, RuntimeContext } from '../../src/types.js';
 
 /**
  * Integration tests for plugin capabilities during setup.

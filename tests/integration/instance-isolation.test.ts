@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Runtime } from './runtime.js';
-import type { PluginDefinition, ScreenDefinition, ActionDefinition } from './types.js';
+import { Runtime } from '../../src/runtime.js';
+import type { PluginDefinition, ScreenDefinition, ActionDefinition } from '../../src/types.js';
 
 describe('Runtime instance isolation integration tests', () => {
   let runtime1: Runtime;
@@ -149,12 +149,12 @@ describe('Runtime instance isolation integration tests', () => {
 
       const provider1 = {
         mount: () => {},
-        render: () => 'provider1'
+        renderScreen: () => 'provider1'
       };
 
       const provider2 = {
         mount: () => {},
-        render: () => 'provider2'
+        renderScreen: () => 'provider2'
       };
 
       // Set different providers in each runtime

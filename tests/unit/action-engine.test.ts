@@ -1,26 +1,39 @@
 import { describe, it, expect } from 'vitest';
-import { ActionEngine } from './action-engine.js';
-import type { ActionDefinition, RuntimeContext } from './types.js';
+import { ActionEngine } from '../../src/action-engine.js';
+import type { ActionDefinition, RuntimeContext, Logger } from '../../src/types.js';
+import { ValidationError, DuplicateRegistrationError, ActionTimeoutError, ActionExecutionError } from '../../src/types.js';
+
+// Create a minimal mock logger for testing
+function createMockLogger(): Logger {
+  return {
+    debug: () => {},
+    info: () => {},
+    warn: () => {},
+    error: () => {}
+  };
+}
 
 // Create a minimal mock RuntimeContext for testing
 function createMockContext(): RuntimeContext {
   return {
     screens: {
-      registerScreen: () => {},
+      registerScreen: () => () => {},
       getScreen: () => null,
       getAllScreens: () => []
     },
     actions: {
-      registerAction: () => {},
-      runAction: async () => undefined
+      registerAction: () => () => {},
+      runAction: async () => undefined as any
     },
     plugins: {
       registerPlugin: () => {},
       getPlugin: () => null,
-      getAllPlugins: () => []
+      getAllPlugins: () => [],
+      getInitializedPlugins: () => []
     },
     events: {
       emit: () => {},
+      emitAsync: async () => {},
       on: () => () => {}
     },
     getRuntime: () => ({
@@ -34,7 +47,7 @@ function createMockContext(): RuntimeContext {
 describe('ActionEngine', () => {
   describe('registerAction', () => {
     it('should register a valid action definition', () => {
-      const engine = new ActionEngine();
+      const engine = new ActionEngine(createMockLogger());
       const action: ActionDefinition = {
         id: 'test-action',
         handler: () => 'result'
@@ -46,8 +59,8 @@ describe('ActionEngine', () => {
       expect(retrieved).toEqual(action);
     });
 
-    it('should reject duplicate action IDs', () => {
-      const engine = new ActionEngine();
+    it('should reject duplicate action IDs with DuplicateRegistrationError', () => {
+      const engine = new ActionEngine(createMockLogger());
       const action1: ActionDefinition = {
         id: 'test-action',
         handler: () => 'result1'
@@ -59,73 +72,103 @@ describe('ActionEngine', () => {
       
       engine.registerAction(action1);
       
+      expect(() => engine.registerAction(action2)).toThrow(DuplicateRegistrationError);
       expect(() => engine.registerAction(action2)).toThrow(
-        'Action with id "test-action" is already registered'
+        'Action with identifier "test-action" is already registered'
       );
     });
 
-    it('should validate required id field', () => {
-      const engine = new ActionEngine();
+    it('should validate required id field with ValidationError', () => {
+      const engine = new ActionEngine(createMockLogger());
       const actionWithoutId = {
         handler: () => 'result'
       } as unknown as ActionDefinition;
       
+      expect(() => engine.registerAction(actionWithoutId)).toThrow(ValidationError);
       expect(() => engine.registerAction(actionWithoutId)).toThrow(
-        'Action definition must have a valid id field'
+        'missing or invalid field "id"'
       );
     });
 
-    it('should validate required handler field', () => {
-      const engine = new ActionEngine();
+    it('should validate required handler field with ValidationError', () => {
+      const engine = new ActionEngine(createMockLogger());
       const actionWithoutHandler = {
         id: 'test-action'
       } as unknown as ActionDefinition;
       
+      expect(() => engine.registerAction(actionWithoutHandler)).toThrow(ValidationError);
       expect(() => engine.registerAction(actionWithoutHandler)).toThrow(
-        'Action definition must have a valid handler function'
+        'missing or invalid field "handler"'
       );
     });
 
     it('should reject action with empty id', () => {
-      const engine = new ActionEngine();
+      const engine = new ActionEngine(createMockLogger());
       const action: ActionDefinition = {
         id: '',
         handler: () => 'result'
       };
       
-      expect(() => engine.registerAction(action)).toThrow(
-        'Action definition must have a valid id field'
-      );
+      expect(() => engine.registerAction(action)).toThrow(ValidationError);
     });
 
     it('should reject action with non-string id', () => {
-      const engine = new ActionEngine();
+      const engine = new ActionEngine(createMockLogger());
       const action = {
         id: 123,
         handler: () => 'result'
       } as unknown as ActionDefinition;
       
-      expect(() => engine.registerAction(action)).toThrow(
-        'Action definition must have a valid id field'
-      );
+      expect(() => engine.registerAction(action)).toThrow(ValidationError);
     });
 
     it('should reject action with non-function handler', () => {
-      const engine = new ActionEngine();
+      const engine = new ActionEngine(createMockLogger());
       const action = {
         id: 'test-action',
         handler: 'not-a-function'
       } as unknown as ActionDefinition;
       
-      expect(() => engine.registerAction(action)).toThrow(
-        'Action definition must have a valid handler function'
-      );
+      expect(() => engine.registerAction(action)).toThrow(ValidationError);
+    });
+
+    it('should return unregister function', () => {
+      const engine = new ActionEngine(createMockLogger());
+      const action: ActionDefinition = {
+        id: 'test-action',
+        handler: () => 'result'
+      };
+      
+      const unregister = engine.registerAction(action);
+      
+      expect(typeof unregister).toBe('function');
+      expect(engine.getAction('test-action')).toEqual(action);
+      
+      unregister();
+      
+      expect(engine.getAction('test-action')).toBeNull();
+    });
+
+    it('should make unregister function idempotent', () => {
+      const engine = new ActionEngine(createMockLogger());
+      const action: ActionDefinition = {
+        id: 'test-action',
+        handler: () => 'result'
+      };
+      
+      const unregister = engine.registerAction(action);
+      
+      unregister();
+      unregister();
+      unregister();
+      
+      expect(engine.getAction('test-action')).toBeNull();
     });
   });
 
   describe('runAction', () => {
     it('should execute handler with params and context', async () => {
-      const engine = new ActionEngine();
+      const engine = new ActionEngine(createMockLogger());
       const mockContext = createMockContext();
       engine.setContext(mockContext);
       
@@ -152,7 +195,7 @@ describe('ActionEngine', () => {
     });
 
     it('should throw error for non-existent action', async () => {
-      const engine = new ActionEngine();
+      const engine = new ActionEngine(createMockLogger());
       const mockContext = createMockContext();
       engine.setContext(mockContext);
       
@@ -162,7 +205,7 @@ describe('ActionEngine', () => {
     });
 
     it('should handle synchronous handlers', async () => {
-      const engine = new ActionEngine();
+      const engine = new ActionEngine(createMockLogger());
       const mockContext = createMockContext();
       engine.setContext(mockContext);
       
@@ -179,7 +222,7 @@ describe('ActionEngine', () => {
     });
 
     it('should handle asynchronous handlers', async () => {
-      const engine = new ActionEngine();
+      const engine = new ActionEngine(createMockLogger());
       const mockContext = createMockContext();
       engine.setContext(mockContext);
       
@@ -200,7 +243,7 @@ describe('ActionEngine', () => {
     });
 
     it('should handle actions without params', async () => {
-      const engine = new ActionEngine();
+      const engine = new ActionEngine(createMockLogger());
       const mockContext = createMockContext();
       engine.setContext(mockContext);
       
@@ -223,7 +266,7 @@ describe('ActionEngine', () => {
     });
 
     it('should throw error if context is not set', async () => {
-      const engine = new ActionEngine();
+      const engine = new ActionEngine(createMockLogger());
       
       const action: ActionDefinition = {
         id: 'test-action',
@@ -238,7 +281,7 @@ describe('ActionEngine', () => {
     });
 
     it('should return handler result', async () => {
-      const engine = new ActionEngine();
+      const engine = new ActionEngine(createMockLogger());
       const mockContext = createMockContext();
       engine.setContext(mockContext);
       
@@ -255,11 +298,115 @@ describe('ActionEngine', () => {
       
       expect(result).toEqual(expectedResult);
     });
+
+    it('should wrap handler errors in ActionExecutionError', async () => {
+      const engine = new ActionEngine(createMockLogger());
+      const mockContext = createMockContext();
+      engine.setContext(mockContext);
+      
+      const originalError = new Error('Handler failed');
+      const action: ActionDefinition = {
+        id: 'failing-action',
+        handler: () => {
+          throw originalError;
+        }
+      };
+      
+      engine.registerAction(action);
+      
+      await expect(engine.runAction('failing-action')).rejects.toThrow(ActionExecutionError);
+      
+      try {
+        await engine.runAction('failing-action');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ActionExecutionError);
+        if (error instanceof ActionExecutionError) {
+          expect(error.actionId).toBe('failing-action');
+          expect(error.cause).toBe(originalError);
+          expect(error.message).toContain('failing-action');
+          expect(error.message).toContain('Handler failed');
+        }
+      }
+    });
+
+    it('should enforce timeout when specified', async () => {
+      const engine = new ActionEngine(createMockLogger());
+      const mockContext = createMockContext();
+      engine.setContext(mockContext);
+      
+      const action: ActionDefinition = {
+        id: 'slow-action',
+        handler: async () => {
+          await new Promise(resolve => setTimeout(resolve, 200));
+          return 'result';
+        },
+        timeout: 50
+      };
+      
+      engine.registerAction(action);
+      
+      await expect(engine.runAction('slow-action')).rejects.toThrow(ActionTimeoutError);
+      
+      try {
+        await engine.runAction('slow-action');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ActionTimeoutError);
+        if (error instanceof ActionTimeoutError) {
+          expect(error.actionId).toBe('slow-action');
+          expect(error.timeoutMs).toBe(50);
+        }
+      }
+    });
+
+    it('should not timeout when action completes within timeout', async () => {
+      const engine = new ActionEngine(createMockLogger());
+      const mockContext = createMockContext();
+      engine.setContext(mockContext);
+      
+      const action: ActionDefinition = {
+        id: 'fast-action',
+        handler: async () => {
+          await new Promise(resolve => setTimeout(resolve, 10));
+          return 'result';
+        },
+        timeout: 100
+      };
+      
+      engine.registerAction(action);
+      
+      const result = await engine.runAction('fast-action');
+      expect(result).toBe('result');
+    });
+
+    it('should not wrap ActionTimeoutError', async () => {
+      const engine = new ActionEngine(createMockLogger());
+      const mockContext = createMockContext();
+      engine.setContext(mockContext);
+      
+      const action: ActionDefinition = {
+        id: 'timeout-action',
+        handler: async () => {
+          await new Promise(resolve => setTimeout(resolve, 200));
+          return 'result';
+        },
+        timeout: 50
+      };
+      
+      engine.registerAction(action);
+      
+      try {
+        await engine.runAction('timeout-action');
+        expect.fail('Should have thrown');
+      } catch (error) {
+        expect(error).toBeInstanceOf(ActionTimeoutError);
+        expect(error).not.toBeInstanceOf(ActionExecutionError);
+      }
+    });
   });
 
   describe('getAction', () => {
     it('should return action definition for existing ID', () => {
-      const engine = new ActionEngine();
+      const engine = new ActionEngine(createMockLogger());
       const action: ActionDefinition = {
         id: 'test-action',
         handler: () => 'result'
@@ -272,7 +419,7 @@ describe('ActionEngine', () => {
     });
 
     it('should return null for non-existing ID', () => {
-      const engine = new ActionEngine();
+      const engine = new ActionEngine(createMockLogger());
       
       const retrieved = engine.getAction('non-existent');
       
@@ -282,7 +429,7 @@ describe('ActionEngine', () => {
 
   describe('getAllActions', () => {
     it('should return all registered actions', () => {
-      const engine = new ActionEngine();
+      const engine = new ActionEngine(createMockLogger());
       const action1: ActionDefinition = {
         id: 'action1',
         handler: () => 'result1'
@@ -309,17 +456,36 @@ describe('ActionEngine', () => {
     });
 
     it('should return empty array when no actions are registered', () => {
-      const engine = new ActionEngine();
+      const engine = new ActionEngine(createMockLogger());
       
       const allActions = engine.getAllActions();
       
       expect(allActions).toEqual([]);
     });
+
+    it('should return a copy that does not affect internal state', () => {
+      const engine = new ActionEngine(createMockLogger());
+      const action: ActionDefinition = {
+        id: 'test-action',
+        handler: () => 'result'
+      };
+      
+      engine.registerAction(action);
+      
+      const allActions = engine.getAllActions();
+      allActions.push({
+        id: 'fake-action',
+        handler: () => 'fake'
+      });
+      
+      expect(engine.getAllActions()).toHaveLength(1);
+      expect(engine.getAction('fake-action')).toBeNull();
+    });
   });
 
   describe('clear', () => {
     it('should remove all registered actions', () => {
-      const engine = new ActionEngine();
+      const engine = new ActionEngine(createMockLogger());
       const action1: ActionDefinition = {
         id: 'action1',
         handler: () => 'result1'
@@ -340,7 +506,7 @@ describe('ActionEngine', () => {
     });
 
     it('should allow registering actions after clear', () => {
-      const engine = new ActionEngine();
+      const engine = new ActionEngine(createMockLogger());
       const action1: ActionDefinition = {
         id: 'action1',
         handler: () => 'result1'
@@ -361,8 +527,8 @@ describe('ActionEngine', () => {
 
   describe('instance isolation', () => {
     it('should maintain separate registries for different ActionEngine instances', () => {
-      const engine1 = new ActionEngine();
-      const engine2 = new ActionEngine();
+      const engine1 = new ActionEngine(createMockLogger());
+      const engine2 = new ActionEngine(createMockLogger());
       
       const action1: ActionDefinition = {
         id: 'action1',

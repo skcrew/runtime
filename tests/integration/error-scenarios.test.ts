@@ -1,29 +1,32 @@
 import { describe, it, expect, vi } from 'vitest';
-import { Runtime } from './runtime.js';
-import { ScreenRegistry } from './screen-registry.js';
-import { ActionEngine } from './action-engine.js';
-import { PluginRegistry } from './plugin-registry.js';
-import type { PluginDefinition, ScreenDefinition, ActionDefinition, RuntimeContext } from './types.js';
+import { Runtime } from '../../src/runtime.js';
+import { ScreenRegistry } from '../../src/screen-registry.js';
+import { ActionEngine } from '../../src/action-engine.js';
+import { PluginRegistry } from '../../src/plugin-registry.js';
+import { ConsoleLogger, DuplicateRegistrationError } from '../../src/types.js';
+import type { PluginDefinition, ScreenDefinition, ActionDefinition, RuntimeContext } from '../../src/types.js';
 
 // Mock RuntimeContext for ActionEngine tests
 function createMockContext(): RuntimeContext {
   return {
     screens: {
-      registerScreen: () => {},
+      registerScreen: () => () => {},
       getScreen: () => null,
       getAllScreens: () => []
     },
     actions: {
-      registerAction: () => {},
-      runAction: async () => undefined
+      registerAction: () => () => {},
+      runAction: async () => undefined as any
     },
     plugins: {
       registerPlugin: () => {},
       getPlugin: () => null,
-      getAllPlugins: () => []
+      getAllPlugins: () => [],
+      getInitializedPlugins: () => []
     },
     events: {
       emit: () => {},
+      emitAsync: async () => {},
       on: () => () => {}
     },
     getRuntime: () => ({
@@ -38,7 +41,8 @@ describe('Error Scenario Tests', () => {
   describe('Duplicate screen ID error message', () => {
     it('should include screen ID in duplicate error message', () => {
       // Requirement: 16.1
-      const registry = new ScreenRegistry();
+      const logger = new ConsoleLogger();
+      const registry = new ScreenRegistry(logger);
       const screenId = 'my-unique-screen-id';
       
       const screen1: ScreenDefinition = {
@@ -59,7 +63,7 @@ describe('Error Scenario Tests', () => {
         registry.registerScreen(screen2);
         expect.fail('Should have thrown an error');
       } catch (error) {
-        expect(error).toBeInstanceOf(Error);
+        expect(error).toBeInstanceOf(DuplicateRegistrationError);
         expect((error as Error).message).toContain(screenId);
         expect((error as Error).message).toContain('my-unique-screen-id');
       }
@@ -69,7 +73,8 @@ describe('Error Scenario Tests', () => {
   describe('Duplicate action ID error message', () => {
     it('should include action ID in duplicate error message', () => {
       // Requirement: 16.2
-      const engine = new ActionEngine();
+      const logger = new ConsoleLogger();
+      const engine = new ActionEngine(logger);
       const actionId = 'my-unique-action-id';
       
       const action1: ActionDefinition = {
@@ -98,7 +103,8 @@ describe('Error Scenario Tests', () => {
   describe('Duplicate plugin name error message', () => {
     it('should include plugin name in duplicate error message', () => {
       // Requirement: 16.3
-      const registry = new PluginRegistry();
+      const logger = new ConsoleLogger();
+      const registry = new PluginRegistry(logger);
       const pluginName = 'my-unique-plugin-name';
       
       const plugin1: PluginDefinition = {
@@ -129,7 +135,8 @@ describe('Error Scenario Tests', () => {
   describe('Missing action error message', () => {
     it('should include action ID in missing action error message', async () => {
       // Requirement: 16.4
-      const engine = new ActionEngine();
+      const logger = new ConsoleLogger();
+      const engine = new ActionEngine(logger);
       const mockContext = createMockContext();
       engine.setContext(mockContext);
       

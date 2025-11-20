@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Runtime } from './runtime.js';
-import type { PluginDefinition } from './types.js';
+import { Runtime } from '../../src/runtime.js';
+import type { PluginDefinition } from '../../src/types.js';
+import { RuntimeState } from '../../src/types.js';
 
 describe('Runtime initialization integration tests', () => {
   let runtime: Runtime;
@@ -551,8 +552,14 @@ describe('Runtime shutdown integration tests', () => {
       runtime.registerPlugin(failingPlugin);
       runtime.registerPlugin(plugin2);
       
-      // Initialize should fail at failingPlugin
+      // Initialize should fail at failingPlugin, triggering rollback
       await expect(runtime.initialize()).rejects.toThrow();
+      
+      // plugin1 dispose should have been called during rollback
+      expect(disposeCalls).toEqual(['plugin1']);
+      
+      // Clear the array for the next test
+      disposeCalls.length = 0;
       
       // Create a new runtime and register only successful plugins
       runtime = new Runtime();
@@ -562,7 +569,7 @@ describe('Runtime shutdown integration tests', () => {
       // Now shutdown
       await runtime.shutdown();
       
-      // Only plugin1 should have dispose called
+      // plugin1 dispose should be called again during shutdown
       expect(disposeCalls).toEqual(['plugin1']);
     });
 
@@ -626,8 +633,8 @@ describe('Runtime shutdown integration tests', () => {
       await runtime.initialize();
       await runtime.shutdown();
       
-      // All three plugins should have dispose called
-      expect(disposeCalls).toEqual(['plugin1', 'plugin2', 'plugin3']);
+      // All three plugins should have dispose called in reverse order (Requirement 5.1)
+      expect(disposeCalls).toEqual(['plugin3', 'plugin2', 'plugin1']);
     });
   });
 
@@ -676,31 +683,30 @@ describe('Runtime shutdown integration tests', () => {
       await runtime.initialize();
       await runtime.shutdown();
       
-      // Dispose should execute in same order as setup
+      // Dispose should execute in reverse order of setup (Requirement 5.1)
       expect(executionOrder).toEqual([
         'setup-plugin1',
         'setup-plugin2',
         'setup-plugin3',
-        'dispose-plugin1',
+        'dispose-plugin3',
         'dispose-plugin2',
-        'dispose-plugin3'
+        'dispose-plugin1'
       ]);
     });
 
     it('should execute async dispose callbacks sequentially', async () => {
-      // Requirement: 4.3
+      // Requirement: 4.3, 5.1 - Dispose in reverse order
       const executionOrder: string[] = [];
-      let plugin1DisposeComplete = false;
+      let plugin2DisposeComplete = false;
       
       const plugin1: PluginDefinition = {
         name: 'plugin1',
         version: '1.0.0',
         setup: () => {},
-        dispose: async () => {
-          executionOrder.push('dispose-plugin1-start');
-          await new Promise(resolve => setTimeout(resolve, 10));
-          plugin1DisposeComplete = true;
-          executionOrder.push('dispose-plugin1-end');
+        dispose: () => {
+          executionOrder.push('dispose-plugin1');
+          // Plugin1 dispose should run after plugin2 completes (reverse order)
+          expect(plugin2DisposeComplete).toBe(true);
         }
       };
       
@@ -708,10 +714,11 @@ describe('Runtime shutdown integration tests', () => {
         name: 'plugin2',
         version: '1.0.0',
         setup: () => {},
-        dispose: () => {
-          executionOrder.push('dispose-plugin2');
-          // Plugin2 dispose should run after plugin1 completes
-          expect(plugin1DisposeComplete).toBe(true);
+        dispose: async () => {
+          executionOrder.push('dispose-plugin2-start');
+          await new Promise(resolve => setTimeout(resolve, 10));
+          plugin2DisposeComplete = true;
+          executionOrder.push('dispose-plugin2-end');
         }
       };
       
@@ -722,9 +729,9 @@ describe('Runtime shutdown integration tests', () => {
       await runtime.shutdown();
       
       expect(executionOrder).toEqual([
-        'dispose-plugin1-start',
-        'dispose-plugin1-end',
-        'dispose-plugin2'
+        'dispose-plugin2-start',
+        'dispose-plugin2-end',
+        'dispose-plugin1'
       ]);
     });
   });
@@ -771,8 +778,8 @@ describe('Runtime shutdown integration tests', () => {
       // Shutdown should not throw even if dispose fails
       await expect(runtime.shutdown()).resolves.not.toThrow();
       
-      // All dispose callbacks should have been called
-      expect(disposeCalls).toEqual(['plugin1', 'failing-dispose', 'plugin2']);
+      // All dispose callbacks should have been called in reverse order (Requirement 5.1)
+      expect(disposeCalls).toEqual(['plugin2', 'failing-dispose', 'plugin1']);
     });
 
     it('should continue cleanup if multiple dispose callbacks fail', async () => {
@@ -815,8 +822,8 @@ describe('Runtime shutdown integration tests', () => {
       await runtime.initialize();
       await runtime.shutdown();
       
-      // All dispose callbacks should have been attempted
-      expect(disposeCalls).toEqual(['failing1', 'failing2', 'success']);
+      // All dispose callbacks should have been attempted in reverse order (Requirement 5.1)
+      expect(disposeCalls).toEqual(['success', 'failing2', 'failing1']);
     });
   });
 
@@ -1086,14 +1093,506 @@ describe('Runtime shutdown integration tests', () => {
       runtime.registerPlugin(successPlugin);
       runtime.registerPlugin(failingPlugin);
       
-      // Initialize should fail
+      // Initialize should fail, triggering rollback which calls dispose on success-plugin
       await expect(runtime.initialize()).rejects.toThrow();
+      
+      // Dispose should have been called once during rollback
+      expect(disposeCallCount).toBe(1);
       
       // Shutdown should not throw
       await expect(runtime.shutdown()).resolves.not.toThrow();
       
-      // Dispose should not be called since runtime was never initialized
-      expect(disposeCallCount).toBe(0);
+      // Dispose should still be 1 (not called again during shutdown since runtime is not initialized)
+      expect(disposeCallCount).toBe(1);
+    });
+  });
+});
+
+describe('Runtime lifecycle events', () => {
+  let runtime: Runtime;
+
+  beforeEach(() => {
+    runtime = new Runtime();
+  });
+
+  describe('runtime:initialized event', () => {
+    it('should emit runtime:initialized event after successful initialization', async () => {
+      // Requirements: 17.1, 17.2, 17.3
+      let eventEmitted = false;
+      let eventData: unknown = null;
+
+      // Register a plugin that subscribes to the lifecycle event
+      const plugin: PluginDefinition = {
+        name: 'lifecycle-listener',
+        version: '1.0.0',
+        setup: (context) => {
+          context.events.on('runtime:initialized', (data) => {
+            eventEmitted = true;
+            eventData = data;
+          });
+        }
+      };
+
+      runtime.registerPlugin(plugin);
+      await runtime.initialize();
+
+      // Verify event was emitted
+      expect(eventEmitted).toBe(true);
+      expect(eventData).toBeDefined();
+      expect((eventData as any).context).toBeDefined();
+      expect((eventData as any).context).toBe(runtime.getContext());
+    });
+
+    it('should not emit runtime:initialized event if initialization fails', async () => {
+      // Requirements: 17.1
+      let eventEmitted = false;
+
+      const successPlugin: PluginDefinition = {
+        name: 'success-plugin',
+        version: '1.0.0',
+        setup: (context) => {
+          context.events.on('runtime:initialized', () => {
+            eventEmitted = true;
+          });
+        }
+      };
+
+      const failingPlugin: PluginDefinition = {
+        name: 'failing-plugin',
+        version: '1.0.0',
+        setup: () => {
+          throw new Error('Setup failed');
+        }
+      };
+
+      runtime.registerPlugin(successPlugin);
+      runtime.registerPlugin(failingPlugin);
+
+      await expect(runtime.initialize()).rejects.toThrow();
+
+      // Event should not have been emitted since initialization failed
+      expect(eventEmitted).toBe(false);
+    });
+  });
+
+  describe('runtime:shutdown event', () => {
+    it('should emit runtime:shutdown event at start of shutdown', async () => {
+      // Requirements: 17.4, 17.5
+      let eventEmitted = false;
+      let eventData: unknown = null;
+
+      const plugin: PluginDefinition = {
+        name: 'shutdown-listener',
+        version: '1.0.0',
+        setup: (context) => {
+          context.events.on('runtime:shutdown', (data) => {
+            eventEmitted = true;
+            eventData = data;
+          });
+        }
+      };
+
+      runtime.registerPlugin(plugin);
+      await runtime.initialize();
+
+      // Reset flag before shutdown
+      eventEmitted = false;
+      
+      await runtime.shutdown();
+
+      // Verify event was emitted
+      expect(eventEmitted).toBe(true);
+      expect(eventData).toBeDefined();
+      expect((eventData as any).context).toBeDefined();
+    });
+
+    it('should not emit runtime:shutdown event if runtime not initialized', async () => {
+      // Requirements: 17.4
+      let eventEmitted = false;
+
+      // Try to subscribe to event before initialization (won't work, but testing the scenario)
+      // In reality, plugins can't subscribe before initialization
+      
+      // Just verify shutdown doesn't throw when called on uninitialized runtime
+      await expect(runtime.shutdown()).resolves.not.toThrow();
+      
+      // Event should not have been emitted since runtime was never initialized
+      expect(eventEmitted).toBe(false);
+    });
+
+    it('should emit runtime:shutdown event before plugin disposal', async () => {
+      // Requirements: 17.4, 17.5
+      const events: string[] = [];
+
+      const plugin: PluginDefinition = {
+        name: 'order-test',
+        version: '1.0.0',
+        setup: (context) => {
+          context.events.on('runtime:shutdown', () => {
+            events.push('shutdown-event');
+          });
+        },
+        dispose: () => {
+          events.push('plugin-dispose');
+        }
+      };
+
+      runtime.registerPlugin(plugin);
+      await runtime.initialize();
+      await runtime.shutdown();
+
+      // Verify shutdown event was emitted before plugin disposal
+      expect(events).toEqual(['shutdown-event', 'plugin-dispose']);
+    });
+  });
+});
+
+describe('Runtime state tracking', () => {
+  let runtime: Runtime;
+
+  beforeEach(() => {
+    runtime = new Runtime();
+  });
+
+  describe('isInitialized method', () => {
+    it('should return false before initialization', () => {
+      // Requirements: 16.1, 16.3
+      expect(runtime.isInitialized()).toBe(false);
+    });
+
+    it('should return true after successful initialization', async () => {
+      // Requirements: 16.1, 16.2
+      await runtime.initialize();
+      expect(runtime.isInitialized()).toBe(true);
+    });
+
+    it('should return false after shutdown', async () => {
+      // Requirements: 16.1, 16.3
+      await runtime.initialize();
+      expect(runtime.isInitialized()).toBe(true);
+      
+      await runtime.shutdown();
+      expect(runtime.isInitialized()).toBe(false);
+    });
+
+    it('should return false after initialization failure', async () => {
+      // Requirements: 16.1, 16.5
+      const failingPlugin: PluginDefinition = {
+        name: 'failing-plugin',
+        version: '1.0.0',
+        setup: () => {
+          throw new Error('Setup failed');
+        }
+      };
+
+      runtime.registerPlugin(failingPlugin);
+      
+      await expect(runtime.initialize()).rejects.toThrow();
+      expect(runtime.isInitialized()).toBe(false);
+    });
+  });
+
+  describe('getState method', () => {
+    it('should return Uninitialized before initialization', () => {
+      // Requirements: 16.1, 16.2, 16.5
+      expect(runtime.getState()).toBe(RuntimeState.Uninitialized);
+    });
+
+    it('should return Initialized after successful initialization', async () => {
+      // Requirements: 16.1, 16.2
+      await runtime.initialize();
+      expect(runtime.getState()).toBe(RuntimeState.Initialized);
+    });
+
+    it('should return Shutdown after shutdown', async () => {
+      // Requirements: 16.1, 16.4
+      await runtime.initialize();
+      await runtime.shutdown();
+      expect(runtime.getState()).toBe(RuntimeState.Shutdown);
+    });
+
+    it('should return Uninitialized after initialization failure', async () => {
+      // Requirements: 16.1, 16.5
+      const failingPlugin: PluginDefinition = {
+        name: 'failing-plugin',
+        version: '1.0.0',
+        setup: () => {
+          throw new Error('Setup failed');
+        }
+      };
+
+      runtime.registerPlugin(failingPlugin);
+      
+      await expect(runtime.initialize()).rejects.toThrow();
+      expect(runtime.getState()).toBe(RuntimeState.Uninitialized);
+    });
+  });
+
+  describe('State transitions during initialize', () => {
+    it('should transition from Uninitialized to Initializing to Initialized', async () => {
+      // Requirements: 16.2, 16.3
+      const states: RuntimeState[] = [];
+      
+      // Capture initial state
+      states.push(runtime.getState());
+      
+      const plugin: PluginDefinition = {
+        name: 'state-tracker',
+        version: '1.0.0',
+        setup: () => {
+          // During setup, state should be Initializing
+          states.push(runtime.getState());
+        }
+      };
+
+      runtime.registerPlugin(plugin);
+      await runtime.initialize();
+      
+      // After initialization, state should be Initialized
+      states.push(runtime.getState());
+
+      expect(states).toEqual([
+        RuntimeState.Uninitialized,
+        RuntimeState.Initializing,
+        RuntimeState.Initialized
+      ]);
+    });
+
+    it('should maintain Initialized state after successful initialization', async () => {
+      // Requirements: 16.2, 16.3
+      await runtime.initialize();
+      
+      expect(runtime.getState()).toBe(RuntimeState.Initialized);
+      
+      // State should remain Initialized
+      expect(runtime.getState()).toBe(RuntimeState.Initialized);
+      expect(runtime.getState()).toBe(RuntimeState.Initialized);
+    });
+
+    it('should allow checking state during plugin setup', async () => {
+      // Requirements: 16.2
+      let stateInSetup: RuntimeState | null = null;
+
+      const plugin: PluginDefinition = {
+        name: 'state-checker',
+        version: '1.0.0',
+        setup: () => {
+          stateInSetup = runtime.getState();
+        }
+      };
+
+      runtime.registerPlugin(plugin);
+      await runtime.initialize();
+
+      expect(stateInSetup).toBe(RuntimeState.Initializing);
+      expect(runtime.getState()).toBe(RuntimeState.Initialized);
+    });
+  });
+
+  describe('State transitions during shutdown', () => {
+    it('should transition from Initialized to ShuttingDown to Shutdown', async () => {
+      // Requirements: 16.4
+      const states: RuntimeState[] = [];
+      
+      await runtime.initialize();
+      states.push(runtime.getState());
+
+      const plugin: PluginDefinition = {
+        name: 'shutdown-tracker',
+        version: '1.0.0',
+        setup: (context) => {
+          context.events.on('runtime:shutdown', () => {
+            // During shutdown event, state should be ShuttingDown
+            states.push(runtime.getState());
+          });
+        },
+        dispose: () => {
+          // During dispose, state should be ShuttingDown
+          states.push(runtime.getState());
+        }
+      };
+
+      // Need to register plugin before initialization
+      runtime = new Runtime();
+      runtime.registerPlugin(plugin);
+      await runtime.initialize();
+      
+      states.length = 0; // Clear states array
+      states.push(runtime.getState());
+      
+      await runtime.shutdown();
+      states.push(runtime.getState());
+
+      expect(states).toEqual([
+        RuntimeState.Initialized,
+        RuntimeState.ShuttingDown,
+        RuntimeState.ShuttingDown,
+        RuntimeState.Shutdown
+      ]);
+    });
+
+    it('should maintain Shutdown state after shutdown completes', async () => {
+      // Requirements: 16.4
+      await runtime.initialize();
+      await runtime.shutdown();
+      
+      expect(runtime.getState()).toBe(RuntimeState.Shutdown);
+      
+      // State should remain Shutdown
+      expect(runtime.getState()).toBe(RuntimeState.Shutdown);
+      expect(runtime.getState()).toBe(RuntimeState.Shutdown);
+    });
+
+    it('should remain in Shutdown state after multiple shutdown calls', async () => {
+      // Requirements: 16.4
+      await runtime.initialize();
+      await runtime.shutdown();
+      
+      expect(runtime.getState()).toBe(RuntimeState.Shutdown);
+      
+      await runtime.shutdown();
+      expect(runtime.getState()).toBe(RuntimeState.Shutdown);
+      
+      await runtime.shutdown();
+      expect(runtime.getState()).toBe(RuntimeState.Shutdown);
+    });
+  });
+
+  describe('State reset on initialization failure', () => {
+    it('should reset state to Uninitialized when initialization fails', async () => {
+      // Requirements: 16.5
+      expect(runtime.getState()).toBe(RuntimeState.Uninitialized);
+
+      const failingPlugin: PluginDefinition = {
+        name: 'failing-plugin',
+        version: '1.0.0',
+        setup: () => {
+          throw new Error('Setup failed');
+        }
+      };
+
+      runtime.registerPlugin(failingPlugin);
+      
+      await expect(runtime.initialize()).rejects.toThrow();
+      
+      // State should be reset to Uninitialized
+      expect(runtime.getState()).toBe(RuntimeState.Uninitialized);
+    });
+
+    it('should reset state to Uninitialized even if state was Initializing', async () => {
+      // Requirements: 16.5
+      let stateBeforeFailure: RuntimeState | null = null;
+
+      const failingPlugin: PluginDefinition = {
+        name: 'failing-plugin',
+        version: '1.0.0',
+        setup: () => {
+          stateBeforeFailure = runtime.getState();
+          throw new Error('Setup failed');
+        }
+      };
+
+      runtime.registerPlugin(failingPlugin);
+      
+      await expect(runtime.initialize()).rejects.toThrow();
+      
+      // State was Initializing during setup
+      expect(stateBeforeFailure).toBe(RuntimeState.Initializing);
+      
+      // But should be reset to Uninitialized after failure
+      expect(runtime.getState()).toBe(RuntimeState.Uninitialized);
+    });
+
+    it('should allow re-initialization after failure', async () => {
+      // Requirements: 16.5
+      const failingPlugin: PluginDefinition = {
+        name: 'failing-plugin',
+        version: '1.0.0',
+        setup: () => {
+          throw new Error('Setup failed');
+        }
+      };
+
+      runtime.registerPlugin(failingPlugin);
+      
+      await expect(runtime.initialize()).rejects.toThrow();
+      expect(runtime.getState()).toBe(RuntimeState.Uninitialized);
+      
+      // Create new runtime and try again with successful plugin
+      runtime = new Runtime();
+      const successPlugin: PluginDefinition = {
+        name: 'success-plugin',
+        version: '1.0.0',
+        setup: () => {}
+      };
+
+      runtime.registerPlugin(successPlugin);
+      await runtime.initialize();
+      
+      expect(runtime.getState()).toBe(RuntimeState.Initialized);
+      expect(runtime.isInitialized()).toBe(true);
+    });
+
+    it('should reset isInitialized to false on initialization failure', async () => {
+      // Requirements: 16.5
+      expect(runtime.isInitialized()).toBe(false);
+
+      const failingPlugin: PluginDefinition = {
+        name: 'failing-plugin',
+        version: '1.0.0',
+        setup: () => {
+          throw new Error('Setup failed');
+        }
+      };
+
+      runtime.registerPlugin(failingPlugin);
+      
+      await expect(runtime.initialize()).rejects.toThrow();
+      
+      expect(runtime.isInitialized()).toBe(false);
+      expect(runtime.getState()).toBe(RuntimeState.Uninitialized);
+    });
+  });
+
+  describe('State consistency with isInitialized', () => {
+    it('should have isInitialized return true only when state is Initialized', async () => {
+      // Requirements: 16.1, 16.2, 16.3
+      // Uninitialized
+      expect(runtime.getState()).toBe(RuntimeState.Uninitialized);
+      expect(runtime.isInitialized()).toBe(false);
+
+      // Initialize
+      await runtime.initialize();
+      expect(runtime.getState()).toBe(RuntimeState.Initialized);
+      expect(runtime.isInitialized()).toBe(true);
+
+      // Shutdown
+      await runtime.shutdown();
+      expect(runtime.getState()).toBe(RuntimeState.Shutdown);
+      expect(runtime.isInitialized()).toBe(false);
+    });
+
+    it('should have isInitialized return false for all non-Initialized states', async () => {
+      // Requirements: 16.1, 16.2, 16.3, 16.4, 16.5
+      // Uninitialized
+      expect(runtime.isInitialized()).toBe(false);
+
+      // After shutdown without initialization
+      await runtime.shutdown();
+      expect(runtime.isInitialized()).toBe(false);
+
+      // After failed initialization
+      runtime = new Runtime();
+      const failingPlugin: PluginDefinition = {
+        name: 'failing-plugin',
+        version: '1.0.0',
+        setup: () => {
+          throw new Error('Setup failed');
+        }
+      };
+      runtime.registerPlugin(failingPlugin);
+      await expect(runtime.initialize()).rejects.toThrow();
+      expect(runtime.isInitialized()).toBe(false);
     });
   });
 });

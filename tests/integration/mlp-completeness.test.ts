@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Runtime } from './runtime.js';
-import type { PluginDefinition, RuntimeContext } from './types.js';
+import { Runtime } from '../../src/runtime.js';
+import type { PluginDefinition, RuntimeContext } from '../../src/types.js';
 
 /**
  * MLP (Minimum Lovable Product) Feature Completeness Tests
@@ -199,7 +199,7 @@ describe('MLP Feature Completeness Tests', () => {
       
       const uiProvider = {
         mount: () => {},
-        render: (screen: any) => `rendered-${screen.id}`
+        renderScreen: (screen: any) => `rendered-${screen.id}`
       };
       
       runtime.setUIProvider(uiProvider);
@@ -225,7 +225,7 @@ describe('MLP Feature Completeness Tests', () => {
       
       const uiProvider = {
         mount: () => {},
-        render: (screen: any) => `rendered-${screen.id}-${screen.title}`
+        renderScreen: (screen: any) => `rendered-${screen.id}-${screen.title}`
       };
       
       runtime.setUIProvider(uiProvider);
@@ -853,7 +853,7 @@ describe('MLP Feature Completeness Tests', () => {
         mount: () => {
           workflowLog.push('ui-mounted');
         },
-        render: (screen: any) => {
+        renderScreen: (screen: any) => {
           workflowLog.push(`render-${screen.id}`);
           return `rendered-${screen.id}`;
         }

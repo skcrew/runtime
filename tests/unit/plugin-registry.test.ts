@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { PluginRegistry } from './plugin-registry.js';
-import { PluginDefinition, RuntimeContext } from './types.js';
+import { PluginRegistry } from '../../src/plugin-registry.js';
+import { PluginDefinition, RuntimeContext, Logger, ConsoleLogger, ValidationError, DuplicateRegistrationError } from '../../src/types.js';
 
 // Mock RuntimeContext for testing
 const createMockContext = (): RuntimeContext => ({
@@ -17,18 +17,29 @@ const createMockContext = (): RuntimeContext => ({
     registerPlugin: vi.fn(),
     getPlugin: vi.fn(),
     getAllPlugins: vi.fn(),
+    getInitializedPlugins: vi.fn(),
   },
   events: {
     emit: vi.fn(),
+    emitAsync: vi.fn(),
     on: vi.fn(),
   },
   getRuntime: vi.fn(),
 });
 
+// Mock Logger for testing
+const createMockLogger = (): Logger => ({
+  debug: vi.fn(),
+  info: vi.fn(),
+  warn: vi.fn(),
+  error: vi.fn(),
+});
+
 describe('PluginRegistry', () => {
   describe('registerPlugin', () => {
     it('should register a valid plugin', () => {
-      const registry = new PluginRegistry();
+      const logger = createMockLogger();
+      const registry = new PluginRegistry(logger);
       const plugin: PluginDefinition = {
         name: 'test-plugin',
         version: '1.0.0',
@@ -40,8 +51,9 @@ describe('PluginRegistry', () => {
       expect(registry.getPlugin('test-plugin')).toBe(plugin);
     });
 
-    it('should throw error for duplicate plugin name', () => {
-      const registry = new PluginRegistry();
+    it('should throw DuplicateRegistrationError for duplicate plugin name', () => {
+      const logger = createMockLogger();
+      const registry = new PluginRegistry(logger);
       const plugin1: PluginDefinition = {
         name: 'test-plugin',
         version: '1.0.0',
@@ -55,34 +67,37 @@ describe('PluginRegistry', () => {
 
       registry.registerPlugin(plugin1);
 
+      expect(() => registry.registerPlugin(plugin2)).toThrow(DuplicateRegistrationError);
       expect(() => registry.registerPlugin(plugin2)).toThrow(
-        'Plugin with name "test-plugin" is already registered'
+        'Plugin with identifier "test-plugin" is already registered'
       );
     });
 
-    it('should validate required fields', () => {
-      const registry = new PluginRegistry();
+    it('should validate required fields with ValidationError', () => {
+      const logger = createMockLogger();
+      const registry = new PluginRegistry(logger);
 
       expect(() =>
         registry.registerPlugin({} as PluginDefinition)
-      ).toThrow('Plugin must have a valid name');
+      ).toThrow(ValidationError);
 
       expect(() =>
         registry.registerPlugin({ name: 'test' } as PluginDefinition)
-      ).toThrow('Plugin must have a valid version');
+      ).toThrow(ValidationError);
 
       expect(() =>
         registry.registerPlugin({
           name: 'test',
           version: '1.0.0',
         } as PluginDefinition)
-      ).toThrow('Plugin must have a valid setup function');
+      ).toThrow(ValidationError);
     });
   });
 
   describe('executeSetup', () => {
     it('should execute plugin setup callbacks sequentially', async () => {
-      const registry = new PluginRegistry();
+      const logger = createMockLogger();
+      const registry = new PluginRegistry(logger);
       const context = createMockContext();
       const callOrder: number[] = [];
 
@@ -121,7 +136,8 @@ describe('PluginRegistry', () => {
     });
 
     it('should support async setup callbacks', async () => {
-      const registry = new PluginRegistry();
+      const logger = createMockLogger();
+      const registry = new PluginRegistry(logger);
       const context = createMockContext();
       const callOrder: number[] = [];
 
@@ -150,7 +166,8 @@ describe('PluginRegistry', () => {
     });
 
     it('should track successfully initialized plugins', async () => {
-      const registry = new PluginRegistry();
+      const logger = createMockLogger();
+      const registry = new PluginRegistry(logger);
       const context = createMockContext();
 
       const plugin: PluginDefinition = {
@@ -177,14 +194,16 @@ describe('PluginRegistry', () => {
       expect(disposePlugin.dispose).toHaveBeenCalled();
     });
 
-    it('should abort on first plugin setup failure', async () => {
-      const registry = new PluginRegistry();
+    it('should abort on first plugin setup failure and rollback', async () => {
+      const logger = createMockLogger();
+      const registry = new PluginRegistry(logger);
       const context = createMockContext();
 
       const plugin1: PluginDefinition = {
         name: 'plugin-1',
         version: '1.0.0',
         setup: vi.fn(),
+        dispose: vi.fn(),
       };
       const plugin2: PluginDefinition = {
         name: 'plugin-2',
@@ -192,6 +211,7 @@ describe('PluginRegistry', () => {
         setup: vi.fn(() => {
           throw new Error('Setup failed');
         }),
+        dispose: vi.fn(),
       };
       const plugin3: PluginDefinition = {
         name: 'plugin-3',
@@ -210,10 +230,18 @@ describe('PluginRegistry', () => {
       expect(plugin1.setup).toHaveBeenCalled();
       expect(plugin2.setup).toHaveBeenCalled();
       expect(plugin3.setup).not.toHaveBeenCalled();
+      
+      // Verify rollback: plugin1 should have dispose called
+      expect(plugin1.dispose).toHaveBeenCalledWith(context);
+      expect(plugin2.dispose).not.toHaveBeenCalled();
+      
+      // Verify logger was called for rollback
+      expect(logger.error).toHaveBeenCalledWith('Plugin setup failed, rolling back initialized plugins');
     });
 
     it('should include plugin name in error message', async () => {
-      const registry = new PluginRegistry();
+      const logger = createMockLogger();
+      const registry = new PluginRegistry(logger);
       const context = createMockContext();
 
       const plugin: PluginDefinition = {
@@ -234,7 +262,8 @@ describe('PluginRegistry', () => {
 
   describe('executeDispose', () => {
     it('should execute dispose only for initialized plugins', async () => {
-      const registry = new PluginRegistry();
+      const logger = createMockLogger();
+      const registry = new PluginRegistry(logger);
       const context = createMockContext();
 
       const plugin1: PluginDefinition = {
@@ -262,19 +291,22 @@ describe('PluginRegistry', () => {
       registry.registerPlugin(plugin2);
       registry.registerPlugin(plugin3);
 
-      // Setup will fail on plugin-2
+      // Setup will fail on plugin-2, rollback will dispose plugin-1
       await expect(registry.executeSetup(context)).rejects.toThrow();
 
-      // Only plugin-1 should have dispose called
+      // After rollback, initializedPlugins should be empty
+      // So executeDispose should not call any dispose
+      vi.clearAllMocks();
       await registry.executeDispose(context);
 
-      expect(plugin1.dispose).toHaveBeenCalledWith(context);
+      expect(plugin1.dispose).not.toHaveBeenCalled();
       expect(plugin2.dispose).not.toHaveBeenCalled();
       expect(plugin3.dispose).not.toHaveBeenCalled();
     });
 
-    it('should execute dispose in same order as setup', async () => {
-      const registry = new PluginRegistry();
+    it('should execute dispose in reverse order of setup', async () => {
+      const logger = createMockLogger();
+      const registry = new PluginRegistry(logger);
       const context = createMockContext();
       const callOrder: number[] = [];
 
@@ -310,13 +342,14 @@ describe('PluginRegistry', () => {
       await registry.executeSetup(context);
       await registry.executeDispose(context);
 
-      expect(callOrder).toEqual([1, 2, 3]);
+      // Dispose should be in reverse order: 3, 2, 1
+      expect(callOrder).toEqual([3, 2, 1]);
     });
 
     it('should log dispose errors but continue cleanup', async () => {
-      const registry = new PluginRegistry();
+      const logger = createMockLogger();
+      const registry = new PluginRegistry(logger);
       const context = createMockContext();
-      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       const plugin1: PluginDefinition = {
         name: 'plugin-1',
@@ -348,19 +381,21 @@ describe('PluginRegistry', () => {
       await registry.executeSetup(context);
       await registry.executeDispose(context);
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Plugin "plugin-1" dispose failed: Dispose error 1'
+      // Verify logger was called with errors
+      expect(logger.error).toHaveBeenCalledWith(
+        'Plugin "plugin-3" dispose failed',
+        expect.any(Error)
       );
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Plugin "plugin-3" dispose failed: Dispose error 3'
+      expect(logger.error).toHaveBeenCalledWith(
+        'Plugin "plugin-1" dispose failed',
+        expect.any(Error)
       );
       expect(plugin2.dispose).toHaveBeenCalled();
-
-      consoleErrorSpy.mockRestore();
     });
 
     it('should skip plugins without dispose callback', async () => {
-      const registry = new PluginRegistry();
+      const logger = createMockLogger();
+      const registry = new PluginRegistry(logger);
       const context = createMockContext();
 
       const plugin1: PluginDefinition = {
@@ -385,7 +420,8 @@ describe('PluginRegistry', () => {
     });
 
     it('should support async dispose callbacks', async () => {
-      const registry = new PluginRegistry();
+      const logger = createMockLogger();
+      const registry = new PluginRegistry(logger);
       const context = createMockContext();
       const callOrder: number[] = [];
 
@@ -413,13 +449,15 @@ describe('PluginRegistry', () => {
       await registry.executeSetup(context);
       await registry.executeDispose(context);
 
-      expect(callOrder).toEqual([1, 2]);
+      // Dispose in reverse order: 2, 1
+      expect(callOrder).toEqual([2, 1]);
     });
   });
 
   describe('getPlugin', () => {
     it('should return plugin by name', () => {
-      const registry = new PluginRegistry();
+      const logger = createMockLogger();
+      const registry = new PluginRegistry(logger);
       const plugin: PluginDefinition = {
         name: 'test-plugin',
         version: '1.0.0',
@@ -432,7 +470,8 @@ describe('PluginRegistry', () => {
     });
 
     it('should return null for non-existent plugin', () => {
-      const registry = new PluginRegistry();
+      const logger = createMockLogger();
+      const registry = new PluginRegistry(logger);
 
       expect(registry.getPlugin('non-existent')).toBeNull();
     });
@@ -440,7 +479,8 @@ describe('PluginRegistry', () => {
 
   describe('getAllPlugins', () => {
     it('should return all registered plugins', () => {
-      const registry = new PluginRegistry();
+      const logger = createMockLogger();
+      const registry = new PluginRegistry(logger);
       const plugin1: PluginDefinition = {
         name: 'plugin-1',
         version: '1.0.0',
@@ -462,15 +502,89 @@ describe('PluginRegistry', () => {
     });
 
     it('should return empty array when no plugins registered', () => {
-      const registry = new PluginRegistry();
+      const logger = createMockLogger();
+      const registry = new PluginRegistry(logger);
 
       expect(registry.getAllPlugins()).toEqual([]);
+    });
+    
+    it('should return array copy to prevent external mutation', () => {
+      const logger = createMockLogger();
+      const registry = new PluginRegistry(logger);
+      const plugin: PluginDefinition = {
+        name: 'test-plugin',
+        version: '1.0.0',
+        setup: vi.fn(),
+      };
+
+      registry.registerPlugin(plugin);
+
+      const allPlugins1 = registry.getAllPlugins();
+      const allPlugins2 = registry.getAllPlugins();
+
+      expect(allPlugins1).not.toBe(allPlugins2);
+      expect(allPlugins1).toEqual(allPlugins2);
+    });
+  });
+  
+  describe('getInitializedPlugins', () => {
+    it('should return initialized plugin names in order', async () => {
+      const logger = createMockLogger();
+      const registry = new PluginRegistry(logger);
+      const context = createMockContext();
+
+      const plugin1: PluginDefinition = {
+        name: 'plugin-1',
+        version: '1.0.0',
+        setup: vi.fn(),
+      };
+      const plugin2: PluginDefinition = {
+        name: 'plugin-2',
+        version: '1.0.0',
+        setup: vi.fn(),
+      };
+
+      registry.registerPlugin(plugin1);
+      registry.registerPlugin(plugin2);
+      await registry.executeSetup(context);
+
+      const initialized = registry.getInitializedPlugins();
+      expect(initialized).toEqual(['plugin-1', 'plugin-2']);
+    });
+
+    it('should return empty array before initialization', () => {
+      const logger = createMockLogger();
+      const registry = new PluginRegistry(logger);
+
+      expect(registry.getInitializedPlugins()).toEqual([]);
+    });
+    
+    it('should return array copy to prevent external mutation', async () => {
+      const logger = createMockLogger();
+      const registry = new PluginRegistry(logger);
+      const context = createMockContext();
+
+      const plugin: PluginDefinition = {
+        name: 'test-plugin',
+        version: '1.0.0',
+        setup: vi.fn(),
+      };
+
+      registry.registerPlugin(plugin);
+      await registry.executeSetup(context);
+
+      const initialized1 = registry.getInitializedPlugins();
+      const initialized2 = registry.getInitializedPlugins();
+
+      expect(initialized1).not.toBe(initialized2);
+      expect(initialized1).toEqual(initialized2);
     });
   });
 
   describe('clear', () => {
     it('should remove all plugins and initialized state', async () => {
-      const registry = new PluginRegistry();
+      const logger = createMockLogger();
+      const registry = new PluginRegistry(logger);
       const context = createMockContext();
 
       const plugin: PluginDefinition = {
@@ -487,6 +601,7 @@ describe('PluginRegistry', () => {
 
       expect(registry.getPlugin('test-plugin')).toBeNull();
       expect(registry.getAllPlugins()).toEqual([]);
+      expect(registry.getInitializedPlugins()).toEqual([]);
 
       // After clear, dispose should not be called since initialized state is cleared
       await registry.executeDispose(context);
