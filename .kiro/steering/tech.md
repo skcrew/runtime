@@ -92,28 +92,28 @@ tests/
 
 Property tests generate large outputs that can overwhelm context. Follow these practices:
 
-**Running Property Tests:**
+**Running Property Tests (Git Bash):**
 
 ```bash
 # Always capture output to file
 npm test property-tests.test.ts > propery-test-output.txt 2>&1
 
 # Check status with minimal context
-tail -25 propery-test-output.txt
+tail -n 25 propery-test-output.txt
 
 # Count passes/fails
-echo "Passed: $(grep -c "✓" propery-test-output.txt)"
-echo "Failed: $(grep -c "×" propery-test-output.txt)"
+grep -c "✓" propery-test-output.txt
+grep -c "×" propery-test-output.txt
 ```
 
-**Debugging Failures:**
+**Debugging Failures (Git Bash):**
 
 ```bash
 # Identify failing tests
-grep -E "FAIL|×" propery-test-output.txt | head -20
+grep -E "FAIL|×" propery-test-output.txt | head -n 20
 
 # Extract first failure details only
-grep -A 5 "FAIL" propery-test-output.txt | head -50
+grep -A 5 "FAIL" propery-test-output.txt | head -n 50
 
 # Run individual failing test
 npm test property-tests.test.ts -t "exact test name"
@@ -122,7 +122,7 @@ npm test property-tests.test.ts -t "exact test name"
 npm test property-tests.test.ts -- --bail=1 > output.txt 2>&1
 ```
 
-**Minimal Output Options:**
+**Minimal Output Options (Git Bash):**
 
 ```bash
 # Use basic reporter for less verbose output
@@ -132,7 +132,7 @@ npm test property-tests.test.ts -- --reporter=basic > output.txt 2>&1
 npm test property-tests.test.ts -- --reporter=dot > output.txt 2>&1
 ```
 
-**Test Filtering:**
+**Test Filtering (Git Bash):**
 
 ```bash
 # Run specific property by number
