@@ -1,29 +1,37 @@
-import { UIProvider, ScreenDefinition } from './types.js';
+import { UIProvider, ScreenDefinition, Logger, ValidationError, DuplicateRegistrationError } from './types.js';
 
 /**
  * UIBridge manages optional UI provider registration and screen rendering.
  * Validates provider implements required methods and rejects duplicate registration.
+ * @see Requirements 9.1, 9.2, 9.3, 9.4, 9.5, 14.1, 14.2, 14.3, 14.4, 14.5, 14.6, 15.1, 15.2, 15.3, 15.4, 15.5
  */
 export class UIBridge {
   private provider: UIProvider | null = null;
+  private logger: Logger;
+
+  constructor(logger: Logger) {
+    this.logger = logger;
+  }
 
   /**
    * Register a UI provider with the runtime.
-   * @throws Error if provider is invalid or already registered
+   * @throws ValidationError if provider is missing required methods
+   * @throws DuplicateRegistrationError if provider is already registered
+   * @see Requirements 9.1, 9.2, 9.4, 14.1, 14.2, 14.3, 14.4, 14.5, 14.6, 15.1, 15.2, 15.3, 15.4, 15.5
    */
   setProvider(provider: UIProvider): void {
     // Reject duplicate provider registration
     if (this.provider !== null) {
-      throw new Error('UI provider already registered');
+      throw new DuplicateRegistrationError('UIProvider', 'default');
     }
 
     // Validate provider has required methods
     if (typeof provider.mount !== 'function') {
-      throw new Error('UI provider must implement mount method');
+      throw new ValidationError('UIProvider', 'mount');
     }
 
-    if (typeof provider.render !== 'function') {
-      throw new Error('UI provider must implement render method');
+    if (typeof provider.renderScreen !== 'function') {
+      throw new ValidationError('UIProvider', 'renderScreen');
     }
 
     this.provider = provider;
@@ -40,13 +48,30 @@ export class UIBridge {
   /**
    * Render a screen using the registered UI provider.
    * @throws Error if no UI provider is registered
+   * @see Requirements 9.2
    */
   renderScreen(screen: ScreenDefinition): unknown {
     if (this.provider === null) {
       throw new Error('No UI provider registered');
     }
 
-    return this.provider.render(screen);
+    return this.provider.renderScreen(screen);
+  }
+
+  /**
+   * Shutdown the UI provider by calling unmount if it exists.
+   * @see Requirements 9.5
+   */
+  async shutdown(): Promise<void> {
+    if (this.provider?.unmount) {
+      try {
+        await Promise.resolve(this.provider.unmount());
+        this.logger.debug('UI provider unmounted');
+      } catch (error) {
+        this.logger.error('UI provider unmount failed', error);
+      }
+    }
+    this.provider = null;
   }
 
   /**

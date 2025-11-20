@@ -1,4 +1,5 @@
-import type { ScreenDefinition } from './types.js';
+import type { ScreenDefinition, Logger } from './types.js';
+import { ValidationError, DuplicateRegistrationError } from './types.js';
 
 /**
  * ScreenRegistry subsystem for managing screen definitions.
@@ -8,40 +9,50 @@ import type { ScreenDefinition } from './types.js';
  */
 export class ScreenRegistry {
   private screens: Map<string, ScreenDefinition>;
+  private logger: Logger;
 
-  constructor() {
+  constructor(logger: Logger) {
     this.screens = new Map();
+    this.logger = logger;
   }
 
   /**
    * Registers a screen definition.
    * Validates required fields and rejects duplicate IDs.
+   * Returns an unregister function that removes the screen when called.
    * 
    * @param screen - The screen definition to register
-   * @throws Error if screen is missing required fields (id, title, component)
-   * @throws Error if a screen with the same ID is already registered
+   * @returns A function that unregisters the screen when called
+   * @throws ValidationError if screen is missing required fields (id, title, component)
+   * @throws DuplicateRegistrationError if a screen with the same ID is already registered
    * 
-   * Requirements: 5.2, 5.5, 5.7, 16.1
+   * Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 5.2, 5.5, 5.7, 14.1, 14.2, 14.3, 14.4, 14.5, 14.6, 15.1, 15.2, 15.3, 15.4, 15.5, 16.1, 18.1, 18.2, 18.3, 18.4, 18.5
    */
-  registerScreen(screen: ScreenDefinition): void {
-    // Validate required fields (Requirement 5.7)
+  registerScreen(screen: ScreenDefinition): () => void {
+    // Validate required fields before any state modification (Requirements 18.1, 18.2, 18.3, 18.5)
     if (!screen.id || typeof screen.id !== 'string') {
-      throw new Error('Screen definition must have a valid id field');
+      throw new ValidationError('Screen', 'id');
     }
     if (!screen.title || typeof screen.title !== 'string') {
-      throw new Error('Screen definition must have a valid title field');
+      throw new ValidationError('Screen', 'title', screen.id);
     }
     if (!screen.component || typeof screen.component !== 'string') {
-      throw new Error('Screen definition must have a valid component field');
+      throw new ValidationError('Screen', 'component', screen.id);
     }
 
-    // Check for duplicate ID (Requirements 5.5, 16.1)
+    // Check for duplicate ID (Requirements 15.1, 15.2, 15.3, 15.4, 15.5)
     if (this.screens.has(screen.id)) {
-      throw new Error(`Screen with id "${screen.id}" is already registered`);
+      throw new DuplicateRegistrationError('Screen', screen.id);
     }
 
     // Register the screen
     this.screens.set(screen.id, screen);
+    this.logger.debug(`Screen "${screen.id}" registered successfully`);
+
+    // Return idempotent unregister function (Requirements 4.1, 4.2, 4.3, 4.4, 4.5)
+    return () => {
+      this.screens.delete(screen.id);
+    };
   }
 
   /**
@@ -58,10 +69,11 @@ export class ScreenRegistry {
 
   /**
    * Retrieves all registered screen definitions.
+   * Returns a copy to ensure data isolation.
    * 
-   * @returns Array of all registered screen definitions
+   * @returns Array copy of all registered screen definitions
    * 
-   * Requirement: 5.4
+   * Requirements: 5.4, 10.1, 10.2, 10.3, 10.4, 10.5
    */
   getAllScreens(): ScreenDefinition[] {
     return Array.from(this.screens.values());

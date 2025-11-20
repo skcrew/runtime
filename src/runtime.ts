@@ -1,4 +1,5 @@
-import type { RuntimeContext, UIProvider, PluginDefinition } from './types.js';
+import type { RuntimeContext, UIProvider, PluginDefinition, Logger } from './types.js';
+import { ConsoleLogger, RuntimeState } from './types.js';
 import { PluginRegistry } from './plugin-registry.js';
 import { ScreenRegistry } from './screen-registry.js';
 import { ActionEngine } from './action-engine.js';
@@ -10,7 +11,7 @@ import { RuntimeContextImpl } from './runtime-context.js';
  * Runtime is the main orchestrator that coordinates all subsystems.
  * Handles initialization, shutdown, and lifecycle state tracking.
  * 
- * Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.1, 3.5, 9.7, 9.9, 15.1, 15.3, 15.5
+ * Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.1, 3.5, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 9.7, 9.9, 15.1, 15.3, 15.5, 16.1, 16.2, 16.3, 16.4, 16.5
  */
 export class Runtime {
   private plugins!: PluginRegistry;
@@ -21,6 +22,20 @@ export class Runtime {
   private context!: RuntimeContext;
   private initialized: boolean = false;
   private pendingPlugins: PluginDefinition[] = [];
+  private logger: Logger;
+  private state: RuntimeState = RuntimeState.Uninitialized;
+
+  /**
+   * Creates a new Runtime instance with optional logger.
+   * 
+   * @param options - Optional configuration object
+   * @param options.logger - Custom logger implementation (defaults to ConsoleLogger)
+   * 
+   * Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6
+   */
+  constructor(options?: { logger?: Logger }) {
+    this.logger = options?.logger ?? new ConsoleLogger();
+  }
 
   /**
    * Registers a plugin before initialization.
@@ -39,11 +54,12 @@ export class Runtime {
   /**
    * Initializes the runtime following the strict initialization sequence.
    * Creates all subsystems in order, then executes plugin setup callbacks.
+   * Emits runtime:initialized event after successful initialization.
    * 
    * @throws Error if initialize is called twice
    * @throws Error if any plugin setup fails
    * 
-   * Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.1, 3.5, 15.1, 15.3, 15.5
+   * Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.1, 3.5, 15.1, 15.3, 15.5, 16.1, 16.2, 16.3, 16.4, 16.5, 17.1, 17.2, 17.3
    */
   async initialize(): Promise<void> {
     // Throw error if initialize called twice (Requirement 15.1)
@@ -51,55 +67,71 @@ export class Runtime {
       throw new Error('Runtime already initialized');
     }
 
-    // Strict initialization sequence (Requirements 2.1, 2.2, 2.3, 2.4)
-    
-    // 1. Create PluginRegistry (Requirement 2.1)
-    this.plugins = new PluginRegistry();
-    
-    // Register pending plugins
-    for (const plugin of this.pendingPlugins) {
-      this.plugins.registerPlugin(plugin);
+    // Set state to Initializing (Requirement 16.2)
+    this.state = RuntimeState.Initializing;
+
+    try {
+      // Strict initialization sequence (Requirements 2.1, 2.2, 2.3, 2.4)
+      
+      // 1. Create PluginRegistry (Requirement 2.1)
+      this.plugins = new PluginRegistry(this.logger);
+      
+      // Register pending plugins
+      for (const plugin of this.pendingPlugins) {
+        this.plugins.registerPlugin(plugin);
+      }
+      this.pendingPlugins = [];
+      
+      // 2. Create ScreenRegistry (Requirement 2.2)
+      this.screens = new ScreenRegistry(this.logger);
+      
+      // 3. Create ActionEngine (Requirement 2.3)
+      this.actions = new ActionEngine(this.logger);
+      
+      // 4. Create EventBus (Requirement 2.4)
+      this.events = new EventBus(this.logger);
+      
+      // 5. Create UIBridge
+      this.ui = new UIBridge(this.logger);
+      
+      // 6. Create RuntimeContext after all subsystems (Requirements 2.4, 9.7)
+      this.context = new RuntimeContextImpl(
+        this.screens,
+        this.actions,
+        this.plugins,
+        this.events,
+        this
+      );
+      
+      // 7. Pass RuntimeContext to ActionEngine (Requirement 9.9)
+      this.actions.setContext(this.context);
+      
+      // 8. Execute plugin setup callbacks in registration order (Requirements 2.5, 2.6, 3.1)
+      // This will abort on first plugin setup failure (Requirement 3.1)
+      await this.plugins.executeSetup(this.context);
+      
+      // Mark as initialized
+      this.initialized = true;
+      
+      // Set state to Initialized (Requirement 16.2)
+      this.state = RuntimeState.Initialized;
+      
+      // Emit runtime:initialized event (Requirements 17.1, 17.2, 17.3)
+      this.events.emit('runtime:initialized', { context: this.context });
+    } catch (error) {
+      // Reset state to Uninitialized on failure (Requirement 16.5)
+      this.state = RuntimeState.Uninitialized;
+      throw error;
     }
-    this.pendingPlugins = [];
-    
-    // 2. Create ScreenRegistry (Requirement 2.2)
-    this.screens = new ScreenRegistry();
-    
-    // 3. Create ActionEngine (Requirement 2.3)
-    this.actions = new ActionEngine();
-    
-    // 4. Create EventBus (Requirement 2.4)
-    this.events = new EventBus();
-    
-    // 5. Create UIBridge
-    this.ui = new UIBridge();
-    
-    // 6. Create RuntimeContext after all subsystems (Requirements 2.4, 9.7)
-    this.context = new RuntimeContextImpl(
-      this.screens,
-      this.actions,
-      this.plugins,
-      this.events,
-      this
-    );
-    
-    // 7. Pass RuntimeContext to ActionEngine (Requirement 9.9)
-    this.actions.setContext(this.context);
-    
-    // 8. Execute plugin setup callbacks in registration order (Requirements 2.5, 2.6, 3.1)
-    // This will abort on first plugin setup failure (Requirement 3.1)
-    await this.plugins.executeSetup(this.context);
-    
-    // Mark as initialized
-    this.initialized = true;
   }
 
   /**
    * Shuts down the runtime following the strict shutdown sequence.
-   * Disposes initialized plugins, clears all registries, and releases resources.
+   * Emits runtime:shutdown event at start of shutdown.
+   * Disposes initialized plugins, shuts down UI provider, clears all registries, and releases resources.
    * Safe to call multiple times (idempotent).
    * 
-   * Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 15.2, 15.4, 15.6
+   * Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 9.5, 15.2, 15.4, 15.6, 16.1, 16.2, 16.3, 16.4, 16.5, 17.4, 17.5
    */
   async shutdown(): Promise<void> {
     // Make shutdown idempotent - safe to call multiple times (Requirement 4.5)
@@ -107,18 +139,35 @@ export class Runtime {
       return;
     }
 
+    // Set state to ShuttingDown (Requirement 16.4)
+    this.state = RuntimeState.ShuttingDown;
+    
+    // Emit runtime:shutdown event (Requirements 17.4, 17.5)
+    this.events.emit('runtime:shutdown', { context: this.context });
+
     // 1. Execute dispose callbacks only for initialized plugins (Requirements 4.2, 4.3)
     // Dispose errors are logged but do not prevent cleanup (Requirement 4.4)
     await this.plugins.executeDispose(this.context);
 
-    // 2. Clear all registries (Requirement 4.5)
+    // 2. Shutdown UI provider before clearing registries (Requirement 9.5)
+    // Handle shutdown errors gracefully - errors are logged but do not prevent cleanup
+    try {
+      await this.ui.shutdown();
+    } catch (error) {
+      this.logger.error('UIBridge shutdown failed', error);
+    }
+
+    // 3. Clear all registries (Requirement 4.5)
     this.screens.clear();
     this.actions.clear();
     this.events.clear();
     this.plugins.clear();
 
-    // 3. Set initialized flag to false (Requirement 4.5)
+    // 4. Set initialized flag to false (Requirement 4.5)
     this.initialized = false;
+    
+    // Set state to Shutdown (Requirement 16.4)
+    this.state = RuntimeState.Shutdown;
   }
 
   /**
@@ -134,6 +183,28 @@ export class Runtime {
       throw new Error('Runtime not initialized');
     }
     return this.context;
+  }
+
+  /**
+   * Returns whether the runtime has been initialized.
+   * 
+   * @returns true if runtime is initialized, false otherwise
+   * 
+   * Requirements: 16.1, 16.2, 16.3
+   */
+  isInitialized(): boolean {
+    return this.state === RuntimeState.Initialized;
+  }
+
+  /**
+   * Returns the current lifecycle state of the runtime.
+   * 
+   * @returns The current RuntimeState
+   * 
+   * Requirements: 16.1, 16.2, 16.3, 16.4, 16.5
+   */
+  getState(): RuntimeState {
+    return this.state;
   }
 
   /**

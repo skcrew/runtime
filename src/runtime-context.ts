@@ -34,12 +34,12 @@ export class RuntimeContextImpl implements RuntimeContext {
 
   /**
    * Screens API - exposes Screen Registry operations
-   * Requirement: 9.2
+   * Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 10.1, 10.2, 10.3, 10.4, 10.5
    */
   get screens() {
     return {
-      registerScreen: (screen: ScreenDefinition): void => {
-        this.screenRegistry.registerScreen(screen);
+      registerScreen: (screen: ScreenDefinition): (() => void) => {
+        return this.screenRegistry.registerScreen(screen);
       },
       getScreen: (id: string): ScreenDefinition | null => {
         return this.screenRegistry.getScreen(id);
@@ -52,14 +52,14 @@ export class RuntimeContextImpl implements RuntimeContext {
 
   /**
    * Actions API - exposes Action Engine operations
-   * Requirement: 9.3
+   * Requirements: 4.1, 4.2, 4.3, 4.4, 4.5
    */
   get actions() {
     return {
-      registerAction: (action: ActionDefinition): void => {
-        this.actionEngine.registerAction(action);
+      registerAction: <P = unknown, R = unknown>(action: ActionDefinition<P, R>): (() => void) => {
+        return this.actionEngine.registerAction(action);
       },
-      runAction: (id: string, params?: unknown): Promise<unknown> => {
+      runAction: <P = unknown, R = unknown>(id: string, params?: P): Promise<R> => {
         return this.actionEngine.runAction(id, params);
       }
     };
@@ -67,7 +67,7 @@ export class RuntimeContextImpl implements RuntimeContext {
 
   /**
    * Plugins API - exposes Plugin Registry operations
-   * Requirement: 9.4
+   * Requirements: 13.1, 13.2, 13.3, 13.4, 13.5
    */
   get plugins() {
     return {
@@ -79,18 +79,24 @@ export class RuntimeContextImpl implements RuntimeContext {
       },
       getAllPlugins: (): PluginDefinition[] => {
         return this.pluginRegistry.getAllPlugins();
+      },
+      getInitializedPlugins: (): string[] => {
+        return this.pluginRegistry.getInitializedPlugins();
       }
     };
   }
 
   /**
    * Events API - exposes Event Bus operations
-   * Requirement: 9.5
+   * Requirements: 12.1, 12.2, 12.3, 12.4, 12.5
    */
   get events() {
     return {
       emit: (event: string, data?: unknown): void => {
         this.eventBus.emit(event, data);
+      },
+      emitAsync: (event: string, data?: unknown): Promise<void> => {
+        return this.eventBus.emitAsync(event, data);
       },
       on: (event: string, handler: (data: unknown) => void): (() => void) => {
         return this.eventBus.on(event, handler);

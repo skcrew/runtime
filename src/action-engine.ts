@@ -1,18 +1,21 @@
-import type { ActionDefinition, RuntimeContext } from './types.js';
+import type { ActionDefinition, RuntimeContext, Logger } from './types.js';
+import { ValidationError, DuplicateRegistrationError, ActionTimeoutError, ActionExecutionError } from './types.js';
 
 /**
  * ActionEngine subsystem for storing and executing actions.
  * Provides O(1) lookup performance using Map-based storage.
  * 
- * Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 13.2, 13.5, 16.2, 16.4
+ * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 4.1, 4.2, 4.3, 4.4, 4.5, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 10.1, 10.2, 10.3, 10.4, 10.5, 11.1, 11.2, 11.3, 11.4, 11.5, 13.2, 13.5, 14.1, 14.2, 14.3, 14.4, 14.5, 14.6, 15.1, 15.2, 15.3, 15.4, 15.5, 16.2, 16.4, 19.1, 19.2, 19.3, 19.4, 19.5
  */
 export class ActionEngine {
-  private actions: Map<string, ActionDefinition>;
+  private actions: Map<string, ActionDefinition<any, any>>;
   private context: RuntimeContext | null;
+  private logger: Logger;
 
-  constructor() {
+  constructor(logger: Logger) {
     this.actions = new Map();
     this.context = null;
+    this.logger = logger;
   }
 
   /**
@@ -30,43 +33,56 @@ export class ActionEngine {
   /**
    * Registers an action definition.
    * Rejects duplicate action IDs.
+   * Returns an unregister function that removes the action when called.
    * 
    * @param action - The action definition to register
-   * @throws Error if an action with the same ID is already registered
+   * @returns A function that unregisters the action when called
+   * @throws ValidationError if required fields are missing or invalid
+   * @throws DuplicateRegistrationError if an action with the same ID is already registered
    * 
-   * Requirements: 6.2, 6.4, 16.2
+   * Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 6.2, 6.4, 14.1, 14.2, 14.3, 14.4, 14.5, 14.6, 15.1, 15.2, 15.3, 15.4, 15.5, 16.2, 19.1, 19.2, 19.3, 19.4, 19.5
    */
-  registerAction(action: ActionDefinition): void {
-    // Validate required fields
+  registerAction<P = unknown, R = unknown>(action: ActionDefinition<P, R>): () => void {
+    // Validate required fields (Requirements 19.1, 19.2, 19.3, 19.5)
     if (!action.id || typeof action.id !== 'string') {
-      throw new Error('Action definition must have a valid id field');
+      throw new ValidationError('Action', 'id');
     }
     if (!action.handler || typeof action.handler !== 'function') {
-      throw new Error('Action definition must have a valid handler function');
+      throw new ValidationError('Action', 'handler', action.id);
     }
 
-    // Check for duplicate ID (Requirements 6.4, 16.2)
+    // Check for duplicate ID (Requirements 6.4, 15.1, 15.2, 15.4, 15.5, 16.2)
     if (this.actions.has(action.id)) {
-      throw new Error(`Action with id "${action.id}" is already registered`);
+      throw new DuplicateRegistrationError('Action', action.id);
     }
 
     // Register the action
     this.actions.set(action.id, action);
+    this.logger.debug(`Action "${action.id}" registered successfully`);
+
+    // Return unregister function (Requirements 4.1, 4.2, 4.4, 4.5)
+    return () => {
+      this.actions.delete(action.id);
+    };
   }
 
   /**
    * Executes an action by ID with optional parameters.
    * Passes the RuntimeContext to the action handler.
    * Handles both synchronous and asynchronous handlers.
+   * Wraps handler errors in ActionExecutionError with context.
+   * Enforces timeout if specified in action definition.
    * 
    * @param id - The action identifier
    * @param params - Optional parameters to pass to the action handler
    * @returns The result from the action handler
    * @throws Error if the action ID does not exist
+   * @throws ActionExecutionError if the handler throws an error
+   * @throws ActionTimeoutError if the action exceeds its timeout
    * 
-   * Requirements: 6.3, 6.5, 6.6, 6.7, 6.8, 16.4
+   * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 6.3, 6.5, 6.6, 6.7, 6.8, 11.1, 11.2, 11.3, 11.4, 11.5, 16.4
    */
-  async runAction(id: string, params?: unknown): Promise<unknown> {
+  async runAction<P = unknown, R = unknown>(id: string, params?: P): Promise<R> {
     // Check if action exists (Requirements 6.5, 16.4)
     const action = this.actions.get(id);
     if (!action) {
@@ -78,10 +94,57 @@ export class ActionEngine {
       throw new Error('RuntimeContext not set in ActionEngine');
     }
 
-    // Execute the handler with params and context (Requirements 6.6, 6.7, 6.8)
-    // Handle both sync and async handlers by wrapping in Promise.resolve
-    const result = action.handler(params, this.context);
-    return Promise.resolve(result);
+    try {
+      // Handle timeout if specified (Requirements 11.1, 11.2, 11.3, 11.4, 11.5)
+      if (action.timeout) {
+        const result = await this.runWithTimeout(action, params);
+        return result as R;
+      }
+
+      // Execute without timeout (Requirements 6.6, 6.7, 6.8)
+      const result = await Promise.resolve(action.handler(params, this.context));
+      return result as R;
+    } catch (error) {
+      // Don't wrap timeout errors (Requirements 11.3, 11.5)
+      if (error instanceof ActionTimeoutError) {
+        this.logger.error(`Action "${id}" timed out`, error);
+        throw error;
+      }
+      // Wrap other errors with contextual information (Requirements 3.1, 3.2, 3.3, 3.4, 3.5)
+      this.logger.error(`Action "${id}" execution failed`, error);
+      throw new ActionExecutionError(id, error as Error);
+    }
+  }
+
+  /**
+   * Runs an action handler with a timeout.
+   * 
+   * @param action - The action definition with timeout
+   * @param params - Parameters to pass to the handler
+   * @returns The result from the action handler
+   * @throws ActionTimeoutError if execution exceeds the timeout
+   * 
+   * Requirements: 11.1, 11.2, 11.3, 11.4, 11.5
+   */
+  private async runWithTimeout(
+    action: ActionDefinition<any, any>,
+    params: unknown
+  ): Promise<unknown> {
+    return new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        reject(new ActionTimeoutError(action.id, action.timeout!));
+      }, action.timeout);
+
+      Promise.resolve(action.handler(params, this.context!))
+        .then(result => {
+          clearTimeout(timeoutId);
+          resolve(result);
+        })
+        .catch(error => {
+          clearTimeout(timeoutId);
+          reject(error);
+        });
+    });
   }
 
   /**
@@ -99,10 +162,11 @@ export class ActionEngine {
 
   /**
    * Retrieves all registered action definitions.
+   * Returns a copy to prevent external mutation of internal state.
    * 
    * @returns Array of all registered action definitions
    * 
-   * Requirement: 13.2
+   * Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 13.2
    */
   getAllActions(): ActionDefinition[] {
     return Array.from(this.actions.values());
