@@ -522,10 +522,13 @@ context.componentRegistry.register('ApiReference', ApiReference);
 ## Development Commands
 
 ```bash
+# Parse markdown files (required after adding/modifying docs)
+npm run build:parser
+
 # Start dev server with hot reload
 npm run dev
 
-# Build for production
+# Build for production (includes build:parser)
 npm run build
 
 # Preview production build
@@ -534,6 +537,42 @@ npm run preview
 # Run tests
 npm test
 ```
+
+### Important: When to Run `build:parser`
+
+The `build:parser` command must be run whenever you:
+- Add new markdown files to the `docs/` directory
+- Modify existing markdown files
+- Add new documentation versions
+- Change frontmatter metadata
+
+This command parses all markdown files and generates `public/parsed-content.json`, which is used by the browser at runtime for fast page loads.
+
+**Note:** `npm run build` automatically runs `build:parser` first, so you only need to run it manually during development when using `npm run dev`.
+
+### Automatic Hot Reload (Development)
+
+During development, a custom Vite plugin watches the `docs/` folder and automatically runs `build:parser` when markdown files change:
+
+```typescript
+// vite.config.ts
+function watchDocsFolder() {
+  return {
+    name: 'watch-docs-folder',
+    configureServer(server) {
+      server.watcher.add('docs/**/*.{md,mdx}');
+      server.watcher.on('change', async (file) => {
+        if (file.includes('docs')) {
+          await execAsync('npm run build:parser');
+          server.ws.send({ type: 'full-reload' });
+        }
+      });
+    }
+  };
+}
+```
+
+This means when running `npm run dev`, you can edit markdown files and see changes immediately without manually running `build:parser`.
 
 ---
 
@@ -577,6 +616,9 @@ skeleton-docs/
 │   ├── playground/
 │   │   ├── index.ts
 │   │   └── sandbox.tsx
+│   ├── versioning/
+│   │   ├── index.ts
+│   │   └── versioning.test.ts
 │   ├── component-registry/
 │   │   └── index.ts
 │   └── react-ui/
