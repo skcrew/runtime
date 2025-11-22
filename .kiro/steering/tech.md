@@ -88,6 +88,17 @@ tests/
 - Each property test runs minimum 100 iterations
 - Tests are tagged with requirement references for traceability
 
+### Unit Test Management
+
+**Running Unit Tests (Git Bash):**
+```bash
+# Single test file
+npm test example.test.ts
+
+# For longer and all tests
+npm test [example.test.ts] 2>&1 | tail -n 20
+```
+
 ### Property Test Management
 
 Property tests generate large outputs that can overwhelm context. Follow these practices:
@@ -154,3 +165,7 @@ npm test property-tests.test.ts -t "Property [1-3]"
 
 **Clean up**
 - Delete the temporary files created such as output  files, debug files etc after a task is completed
+
+
+**MCP**
+Always use context7 when I need code generation, setup or configuration steps, or library/API documentation. This means you should utomatically use the Context7 MCP tools to resolve library id and get library docs without me having to explicitly ask.
