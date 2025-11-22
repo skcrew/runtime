@@ -83,7 +83,7 @@ export function Sidebar({ items, activeId, onNavigate }: SidebarProps): JSX.Elem
           border-radius: 0.375rem;
           text-align: left;
           cursor: pointer;
-          transition: background-color 0.2s ease;
+          transition: background-color 0.2s ease, color 0.2s ease;
           color: var(--text-color, #374151);
           font-size: 0.875rem;
           line-height: 1.25rem;
@@ -127,6 +127,28 @@ export function Sidebar({ items, activeId, onNavigate }: SidebarProps): JSX.Elem
 
         .nav-item:focus:not(:focus-visible) {
           outline: none;
+        }
+
+        /* Dark theme styles */
+        [data-theme="dark"] .nav-item {
+          color: var(--text-color, #d1d5db);
+        }
+
+        [data-theme="dark"] .nav-item:hover {
+          background: var(--nav-hover-bg, #3d3d3d);
+        }
+
+        [data-theme="dark"] .nav-item.active {
+          background: var(--nav-active-bg, #1e3a5f);
+          color: var(--nav-active-color, #93c5fd);
+        }
+
+        [data-theme="dark"] .nav-item:focus {
+          outline-color: var(--focus-color, #60a5fa);
+        }
+
+        [data-theme="dark"] .nav-empty {
+          color: var(--text-muted, #9ca3af);
         }
       `}</style>
     </nav>

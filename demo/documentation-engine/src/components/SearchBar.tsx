@@ -23,6 +23,19 @@ export interface SearchBarProps {
 }
 
 /**
+ * Highlight search term in text
+ * @param text - Text to highlight
+ * @param term - Search term to highlight
+ * @returns HTML string with highlighted term
+ */
+function highlightSearchTerm(text: string, term: string): string {
+  if (!term || !text) return text;
+  
+  const regex = new RegExp(`(${term})`, 'gi');
+  return text.replace(regex, '<mark>$1</mark>');
+}
+
+/**
  * SearchBar component with results dropdown
  * 
  * Provides search input and displays results with navigation.
@@ -33,6 +46,7 @@ export function SearchBar({ onSearch, results, onResultSelect }: SearchBarProps)
   const [searchTerm, setSearchTerm] = useState('');
   const [isResultsOpen, setIsResultsOpen] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
+  const debounceTimerRef = useRef<number | null>(null);
 
   // Close results when clicking outside
   useEffect(() => {
@@ -48,15 +62,33 @@ export function SearchBar({ onSearch, results, onResultSelect }: SearchBarProps)
     };
   }, []);
 
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, []);
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSearchTerm(value);
     
+    // Clear existing debounce timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    
     if (value.trim()) {
-      onSearch(value);
-      setIsResultsOpen(true);
+      // Debounce search by 300ms
+      debounceTimerRef.current = window.setTimeout(() => {
+        onSearch(value);
+        setIsResultsOpen(true);
+      }, 300);
     } else {
       setIsResultsOpen(false);
+      onSearch(''); // Clear results immediately when input is empty
     }
   };
 
@@ -108,7 +140,12 @@ export function SearchBar({ onSearch, results, onResultSelect }: SearchBarProps)
                     <div className="search-result-title">{result.title}</div>
                     <div className="search-result-path">{result.path}</div>
                     {result.snippet && (
-                      <div className="search-result-snippet">{result.snippet}</div>
+                      <div 
+                        className="search-result-snippet"
+                        dangerouslySetInnerHTML={{ 
+                          __html: highlightSearchTerm(result.snippet, searchTerm) 
+                        }}
+                      />
                     )}
                   </button>
                 </li>
@@ -147,7 +184,7 @@ export function SearchBar({ onSearch, results, onResultSelect }: SearchBarProps)
           font-size: 0.875rem;
           background: var(--input-bg, #ffffff);
           color: var(--text-color, #1f2937);
-          transition: border-color 0.2s ease, box-shadow 0.2s ease;
+          transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
         }
 
         .search-input:focus {
@@ -172,6 +209,32 @@ export function SearchBar({ onSearch, results, onResultSelect }: SearchBarProps)
           border-radius: 0.375rem;
           box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
           z-index: 50;
+        }
+
+        /* Dark theme styles */
+        [data-theme="dark"] .search-input {
+          background: var(--input-bg, #2d2d2d);
+          color: var(--text-color, #e5e7eb);
+          border-color: var(--border-color, #404040);
+        }
+
+        [data-theme="dark"] .search-input:focus {
+          border-color: var(--focus-color, #60a5fa);
+          box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2);
+        }
+
+        [data-theme="dark"] .search-input::placeholder {
+          color: var(--text-muted, #6b7280);
+        }
+
+        [data-theme="dark"] .search-icon {
+          color: var(--text-muted, #9ca3af);
+        }
+
+        [data-theme="dark"] .search-results {
+          background: var(--dropdown-bg, #2d2d2d);
+          border-color: var(--border-color, #404040);
+          box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
         }
 
         .search-no-results {
@@ -233,6 +296,44 @@ export function SearchBar({ onSearch, results, onResultSelect }: SearchBarProps)
           display: -webkit-box;
           -webkit-line-clamp: 2;
           -webkit-box-orient: vertical;
+        }
+
+        .search-result-snippet mark {
+          background-color: #fef08a;
+          color: #854d0e;
+          padding: 0.125rem 0.25rem;
+          border-radius: 0.125rem;
+          font-weight: 600;
+        }
+
+        /* Dark theme result styles */
+        [data-theme="dark"] .search-no-results {
+          color: var(--text-muted, #9ca3af);
+        }
+
+        [data-theme="dark"] .search-result-button:hover {
+          background: var(--result-hover-bg, #3d3d3d);
+        }
+
+        [data-theme="dark"] .search-result-button:focus {
+          outline-color: var(--focus-color, #60a5fa);
+        }
+
+        [data-theme="dark"] .search-result-title {
+          color: var(--text-color, #e5e7eb);
+        }
+
+        [data-theme="dark"] .search-result-path {
+          color: var(--text-muted, #9ca3af);
+        }
+
+        [data-theme="dark"] .search-result-snippet {
+          color: var(--text-color, #d1d5db);
+        }
+
+        [data-theme="dark"] .search-result-snippet mark {
+          background-color: #854d0e;
+          color: #fef08a;
         }
       `}</style>
     </div>

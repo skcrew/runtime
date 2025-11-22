@@ -21,3 +21,11 @@ export type { MarkdownPageProps } from './MarkdownPage.js';
 
 export { CodeBlock } from './CodeBlock.js';
 export type { CodeBlockProps } from './CodeBlock.js';
+
+export { Callout } from './Callout.js';
+export type { CalloutProps, CalloutType } from './Callout.js';
+
+export { Playground } from './Playground.js';
+export type { PlaygroundProps, PlaygroundPreset } from './Playground.js';
+
+export { VersionSelector } from './VersionSelector.js';

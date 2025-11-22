@@ -52,7 +52,7 @@ export function ThemeToggle({ theme, onToggle }: ThemeToggleProps): JSX.Element 
           cursor: pointer;
           font-size: 0.875rem;
           color: var(--text-color, #1f2937);
-          transition: background-color 0.2s ease, border-color 0.2s ease;
+          transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
         }
 
         .theme-toggle:hover {
@@ -69,6 +69,10 @@ export function ThemeToggle({ theme, onToggle }: ThemeToggleProps): JSX.Element 
           outline: none;
         }
 
+        .theme-toggle:active {
+          transform: scale(0.98);
+        }
+
         .theme-icon {
           font-size: 1.125rem;
           line-height: 1;
@@ -76,6 +80,22 @@ export function ThemeToggle({ theme, onToggle }: ThemeToggleProps): JSX.Element 
 
         .theme-label {
           font-weight: 500;
+        }
+
+        /* Dark theme styles */
+        [data-theme="dark"] .theme-toggle {
+          background: var(--button-bg, #3d3d3d);
+          border-color: var(--border-color, #525252);
+          color: var(--text-color, #e5e7eb);
+        }
+
+        [data-theme="dark"] .theme-toggle:hover {
+          background: var(--button-hover-bg, #4d4d4d);
+          border-color: var(--border-hover-color, #6b7280);
+        }
+
+        [data-theme="dark"] .theme-toggle:focus {
+          outline-color: var(--focus-color, #60a5fa);
         }
 
         /* Hide label on very small screens */
