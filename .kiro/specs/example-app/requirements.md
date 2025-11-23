@@ -41,6 +41,20 @@ The Skeleton Crew Playground is a minimal, plugin-driven example application tha
 4. WHEN each plugin setup executes THEN the plugin SHALL register at least one screen definition
 5. WHEN each plugin setup executes THEN the plugin SHALL register at least one action handler
 
+### Requirement 11
+
+**User Story:** As a developer learning Skeleton Crew, I want to see interactive demonstrations of each core feature, so that I can understand how each subsystem works.
+
+#### Acceptance Criteria
+
+1. WHEN the core-demo plugin initializes THEN the plugin SHALL register demonstration screens for plugin system, screen registry, action engine, event bus, and runtime context
+2. WHEN a user navigates to the plugin system demo screen THEN the system SHALL display information about plugin registration and lifecycle
+3. WHEN a user navigates to the screen registry demo screen THEN the system SHALL display all registered screens and allow inspection of screen metadata
+4. WHEN a user navigates to the action engine demo screen THEN the system SHALL provide interactive actions that demonstrate parameter passing and return values
+5. WHEN a user navigates to the event bus demo screen THEN the system SHALL allow triggering events and display real-time event propagation to subscribers
+6. WHEN a user navigates to the runtime context demo screen THEN the system SHALL demonstrate accessing all subsystems through the unified context API
+7. WHEN a user triggers a demo action THEN the system SHALL display the action execution result and any emitted events
+
 ### Requirement 3
 
 **User Story:** As a user of the example application, I want to navigate between different screens, so that I can explore different features.

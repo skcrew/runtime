@@ -111,18 +111,33 @@ runtime.setUIProvider(terminalUIProvider);
 ### Core Demo Plugin (example/plugins/core-demo.ts)
 
 **Responsibilities:**
-- Register home screen
-- Provide welcome message and overview
-- Demonstrate basic plugin structure
+- Register home screen with welcome message and overview
+- Register interactive demonstration screens for each Skeleton Crew feature
+- Provide educational actions that demonstrate runtime capabilities
+- Subscribe to and display events from demo interactions
 
 **Screens:**
-- `home` - Welcome screen with application overview
+- `home` - Welcome screen with application overview and navigation guide
+- `demo-plugin-system` - Interactive demonstration of plugin registration and lifecycle
+- `demo-screen-registry` - Display all registered screens with metadata inspection
+- `demo-action-engine` - Interactive actions demonstrating parameter passing and execution
+- `demo-event-bus` - Event emission and subscription demonstration with real-time display
+- `demo-runtime-context` - Unified context API demonstration showing subsystem access
 
 **Actions:**
-- None (home screen is informational only)
+- `demo:greet` - Simple action with no parameters (returns greeting)
+- `demo:greet-user` - Action with parameters (accepts name, returns personalized greeting)
+- `demo:calculate` - Action demonstrating parameter validation (accepts a, b, operation)
+- `demo:emit-event` - Action that emits custom events for demonstration
+- `demo:list-plugins` - Action that retrieves and displays all registered plugins
+- `demo:list-screens` - Action that retrieves and displays all registered screens
+- `demo:list-actions` - Action that retrieves and displays all registered actions
 
 **Events:**
 - Subscribes to `runtime:initialized` to log startup
+- Subscribes to `demo:event-emitted` to demonstrate event handling
+- Emits `demo:action-executed` when demo actions are triggered
+- Emits `demo:event-emitted` when user triggers event emission demo
 
 ### Counter Plugin (example/plugins/counter.ts)
 
@@ -193,6 +208,21 @@ interface SettingsChangedEvent {
   setting: string;
   value: unknown;
 }
+
+// demo:action-executed event
+interface DemoActionExecutedEvent {
+  actionId: string;
+  parameters: unknown;
+  result: unknown;
+  timestamp: string;
+}
+
+// demo:event-emitted event
+interface DemoEventEmittedEvent {
+  message: string;
+  priority?: string;
+  timestamp: string;
+}
 ```
 
 ### Screen Component Identifiers
@@ -203,7 +233,12 @@ The Terminal UI Provider uses string-based component identifiers to determine ho
 type ComponentIdentifier = 
   | 'HomeScreen'
   | 'CounterScreen'
-  | 'SettingsScreen';
+  | 'SettingsScreen'
+  | 'DemoPluginSystemScreen'
+  | 'DemoScreenRegistryScreen'
+  | 'DemoActionEngineScreen'
+  | 'DemoEventBusScreen'
+  | 'DemoRuntimeContextScreen';
 ```
 
 ## Correctness Properties
@@ -295,6 +330,30 @@ type ComponentIdentifier =
 
 **Validates: Requirements 8.5**
 
+### Property 15: Demo screen registration completeness
+
+*For any* initialized core-demo plugin, the plugin should register demonstration screens for plugin system, screen registry, action engine, event bus, and runtime context.
+
+**Validates: Requirements 11.1**
+
+### Property 16: Demo action execution returns results
+
+*For any* demo action (greet, greet-user, calculate), executing the action should return a non-empty result value.
+
+**Validates: Requirements 11.4**
+
+### Property 17: Demo event emission propagation
+
+*For any* demo event emission, all subscribed handlers should receive the event data.
+
+**Validates: Requirements 11.5**
+
+### Property 18: Demo action parameter validation
+
+*For any* demo action that accepts parameters, providing valid parameters should execute successfully and invalid parameters should throw descriptive errors.
+
+**Validates: Requirements 11.4**
+
 ## Error Handling
 
 ### Terminal UI Provider Errors
@@ -331,6 +390,9 @@ Unit tests verify specific components and their behavior:
 **Plugin Tests:**
 - Test counter plugin state management (increment, decrement, reset)
 - Test settings plugin state management (theme toggle)
+- Test core-demo plugin registers all demonstration screens
+- Test core-demo plugin demo actions execute correctly
+- Test core-demo plugin event emission and subscription
 - Test plugin screen registration
 - Test plugin action registration
 - Test plugin event emission
@@ -416,6 +478,26 @@ Property-based tests verify universal properties using fast-check library with m
 - Test: renderScreen produces non-empty output
 - Tag: `**Feature: example-app, Property 14: Screen rendering produces output**`
 
+**Property 15: Demo screen registration completeness**
+- Generate: Core-demo plugin instance
+- Test: Plugin registers screens for plugin-system, screen-registry, action-engine, event-bus, and runtime-context demos
+- Tag: `**Feature: example-app, Property 15: Demo screen registration completeness**`
+
+**Property 16: Demo action execution returns results**
+- Generate: Random demo action IDs (greet, greet-user, calculate) with valid parameters
+- Test: Each action execution returns non-empty result
+- Tag: `**Feature: example-app, Property 16: Demo action execution returns results**`
+
+**Property 17: Demo event emission propagation**
+- Generate: Random event names and data
+- Test: All subscribed handlers receive emitted events
+- Tag: `**Feature: example-app, Property 17: Demo event emission propagation**`
+
+**Property 18: Demo action parameter validation**
+- Generate: Random valid and invalid parameters for demo actions
+- Test: Valid parameters execute successfully, invalid parameters throw descriptive errors
+- Tag: `**Feature: example-app, Property 18: Demo action parameter validation**`
+
 ### Testing Framework
 
 - **Unit & Integration Tests**: Vitest
@@ -430,9 +512,16 @@ Property-based tests verify universal properties using fast-check library with m
 - Run `npm run example` and verify:
   - Application starts without errors
   - All three plugins initialize
-  - Screen menu displays all screens
+  - Screen menu displays all screens including demo screens
   - Navigation between screens works
+  - Home screen displays welcome message and navigation guide
+  - Plugin System Demo screen shows all registered plugins
+  - Screen Registry Demo screen displays all screens with metadata
+  - Action Engine Demo screen allows executing demo actions with parameters
+  - Event Bus Demo screen shows real-time event propagation
+  - Runtime Context Demo screen demonstrates unified API access
   - Counter increment/decrement works
   - Settings theme toggle works
   - Events are logged in real-time
+  - Demo actions emit events that are displayed
   - Exit command shuts down gracefully

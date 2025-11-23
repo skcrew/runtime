@@ -91,25 +91,90 @@
   - **Property 9: Settings display completeness**
   - **Validates: Requirements 5.5**
 
-- [x] 4. Implement Core Demo Plugin
+- [x] 4. Implement Enhanced Core Demo Plugin
 
 
 
+
+
+- [x] 4.1 Create core demo plugin structure and home screen
 
 
   - Create `example/plugins/core-demo.ts` with plugin definition
   - Register home screen with id "home", title "Welcome to Skeleton Crew Playground", component "HomeScreen"
+  - Add welcome message explaining the playground and available demos
   - Subscribe to runtime:initialized event to log startup message
   - Export plugin as `coreDemoPlugin`
-  - _Requirements: 2.1, 2.4_
+  - _Requirements: 2.1, 2.4, 11.1_
 
-- [x] 4.1 Write property test for plugin screen registration completeness
-
-
+- [x] 4.2 Implement plugin system demonstration screen
 
 
+  - Register screen with id "demo-plugin-system", title "Plugin System Demo"
+  - Display information about plugin registration and lifecycle
+  - Show list of all registered plugins with names and versions
+  - Add action to demonstrate plugin metadata access
+  - _Requirements: 11.1, 11.2_
 
+- [x] 4.3 Implement screen registry demonstration screen
 
+  - Register screen with id "demo-screen-registry", title "Screen Registry Demo"
+  - Display all registered screens with their IDs, titles, and components
+  - Add action to inspect specific screen metadata
+  - Show screen count and demonstrate screen lookup
+  - _Requirements: 11.1, 11.3_
+
+- [x] 4.4 Implement action engine demonstration screen
+
+  - Register screen with id "demo-action-engine", title "Action Engine Demo"
+  - Register demo:greet action (no parameters, returns greeting)
+  - Register demo:greet-user action (accepts name parameter, returns personalized greeting)
+  - Register demo:calculate action (accepts a, b, operation parameters, returns calculation result)
+  - Display action execution results in real-time
+  - _Requirements: 11.1, 11.4_
+
+- [x] 4.5 Implement event bus demonstration screen
+
+  - Register screen with id "demo-event-bus", title "Event Bus Demo"
+  - Register demo:emit-event action that emits custom events
+  - Subscribe to demo:event-emitted events and display in real-time
+  - Show event propagation to multiple subscribers
+  - Display event log with timestamps
+  - _Requirements: 11.1, 11.5_
+
+- [x] 4.6 Implement runtime context demonstration screen
+
+  - Register screen with id "demo-runtime-context", title "Runtime Context Demo"
+  - Register demo:list-plugins action (retrieves all plugins via context.plugins)
+  - Register demo:list-screens action (retrieves all screens via context.screens)
+  - Register demo:list-actions action (retrieves all actions via context.actions)
+  - Demonstrate unified context API access to all subsystems
+  - _Requirements: 11.1, 11.6_
+
+- [x] 4.7 Add demo action event emissions
+
+  - Emit demo:action-executed event when any demo action is triggered
+  - Include action ID and parameters in event data
+  - Subscribe to demo:action-executed to log action executions
+  - _Requirements: 11.7_
+
+- [ ]* 4.8 Write property test for demo screen registration completeness
+  - **Property 15: Demo screen registration completeness**
+  - **Validates: Requirements 11.1**
+
+- [ ]* 4.9 Write property test for demo action execution
+  - **Property 16: Demo action execution returns results**
+  - **Validates: Requirements 11.4**
+
+- [ ]* 4.10 Write property test for demo event propagation
+  - **Property 17: Demo event emission propagation**
+  - **Validates: Requirements 11.5**
+
+- [ ]* 4.11 Write property test for demo action parameter validation
+  - **Property 18: Demo action parameter validation**
+  - **Validates: Requirements 11.4**
+
+- [x] 4.12 Write property test for plugin screen registration completeness
   - **Property 1: Plugin screen registration completeness**
   - **Validates: Requirements 2.4**
 
