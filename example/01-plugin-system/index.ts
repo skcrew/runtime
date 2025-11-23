@@ -30,7 +30,7 @@ const greetingPlugin: PluginDefinition = {
   name: 'greeting-plugin',
   version: '1.0.0',
   
-  setup(context) {
+  setup(_context) {
     console.log('[Plugin] greeting-plugin.setup() called');
     console.log('[Plugin] Hello from greeting plugin!');
   },

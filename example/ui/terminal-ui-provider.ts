@@ -153,7 +153,7 @@ export class TerminalUIProvider implements UIProvider {
    * @param context - RuntimeContext provides access to all runtime subsystems
    * @see Requirements 8.1, 8.4, 7.1
    */
-  async mount(target: unknown, context: RuntimeContext): Promise<void> {
+  async mount(_target: unknown, context: RuntimeContext): Promise<void> {
     this.context = context;
 
     // Initialize readline interface

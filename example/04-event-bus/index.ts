@@ -43,7 +43,7 @@ const subscriberPlugin: PluginDefinition = {
     
     // Subscribe to the same event (multiple subscribers allowed)
     context.events.on('notification:sent', (data) => {
-      if (data.priority === 'high') {
+      if ((data as any).priority === 'high') {
         console.log(`[Subscriber] ⚠️  HIGH PRIORITY notification detected!`);
       }
     });
@@ -59,7 +59,7 @@ const loggerPlugin: PluginDefinition = {
     
     // Logger subscribes to all notification events
     context.events.on('notification:sent', (data) => {
-      console.log(`[Logger] Logging event to database: ${data.message}`);
+      console.log(`[Logger] Logging event to database: ${(data as any).message}`);
     });
   }
 };

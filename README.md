@@ -291,21 +291,49 @@ runtime.setUIProvider({
 });
 ```
 
-## Example Application
+## Learning Resources
 
-Check out the `/example` folder for a complete working application that demonstrates:
+### Tutorial: Build a Task Manager App
 
+Learn Skeleton Crew by building a complete task management application from scratch. The tutorial progressively introduces concepts through 5 hands-on steps:
+
+1. **Basic Task Plugin** - Runtime initialization, actions, state
+2. **Multiple Plugins** - Plugin composition, screen navigation
+3. **Event Communication** - Event-driven architecture, loose coupling
+4. **UI Provider Swap** - Replace terminal with React (same plugins!)
+5. **Build Your Own Plugin** - Custom plugin development
+
+```bash
+npm run build
+npm run tutorial:01  # Start with step 1
+```
+
+See [example/tutorial/README.md](example/tutorial/README.md) for the complete tutorial.
+
+### Example Application
+
+Check out the `/example` folder for focused examples and a complete playground application:
+
+**Focused Examples** (Learn individual concepts):
+```bash
+npm run example:01  # Plugin System
+npm run example:02  # Screen Registry
+npm run example:03  # Action Engine
+npm run example:04  # Event Bus
+npm run example:05  # Runtime Context
+```
+
+**Complete Playground** (See everything together):
+```bash
+npm run example
+```
+
+The playground demonstrates:
 - Multiple plugins working together
 - Screen registration and rendering
 - Action execution
 - Event-driven communication
 - Terminal-based UI provider
-
-Run the example:
-
-```bash
-npm run example
-```
 
 ## Architecture
 

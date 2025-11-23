@@ -1,50 +1,47 @@
 {
-  "name": "skeleton-crew",
+  "name": "skeleton-crew-runtime",
   "version": "0.1.0",
-  "description": "A minimal, plugin-based application runtime for building internal tools and modular applications without UI framework lock-in.",
+  "description": "A minimal, plugin-based application runtime for building internal tools and modular applications",
   "type": "module",
-  "main": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "exports": {
-    ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    }
-  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "test": "vitest --run",
+    "test": "vitest run",
     "test:watch": "vitest",
-    "example": "tsx example/index.ts",
-    "example:01": "tsx example/01-plugin-system/index.ts",
-    "example:02": "tsx example/02-screen-registry/index.ts",
-    "example:03": "tsx example/03-action-engine/index.ts",
-    "example:04": "tsx example/04-event-bus/index.ts",
-    "example:05": "tsx example/05-runtime-context/index.ts"
+    "example": "node dist/example/index.js",
+    "example:01": "node dist/example/01-plugin-system/index.js",
+    "example:02": "node dist/example/02-screen-registry/index.js",
+    "example:03": "node dist/example/03-action-engine/index.js",
+    "example:04": "node dist/example/04-event-bus/index.js",
+    "example:05": "node dist/example/05-runtime-context/index.js",
+    "tutorial:01": "node dist/example/tutorial/01-basic-task-plugin/index.js",
+    "tutorial:02": "node dist/example/tutorial/02-multiple-plugins/index.js",
+    "tutorial:03": "node dist/example/tutorial/03-event-communication/index.js",
+    "tutorial:04": "vite example/tutorial/04-ui-provider-swap",
+    "tutorial:05": "node dist/example/tutorial/05-custom-plugin/index.js"
   },
-  "files": [
-    "dist"
-  ],
   "keywords": [
     "runtime",
     "plugin",
-    "extensible"
+    "framework",
+    "internal-tools",
+    "modular"
   ],
-  "author": "Raju KC",
+  "author": "",
   "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/razukc/skeleton-crew.git"
-  },
-  "homepage": "https://github.com/razukc/skeleton-crew#readme",
-  "bugs": {
-    "url": "https://github.com/razukc/skeleton-crew/issues"
-  },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "fast-check": "^4.3.0",
-    "tsx": "^4.20.6",
-    "typescript": "^5.0.0",
-    "vitest": "^4.0.10"
+    "@types/node": "^20.10.0",
+    "fast-check": "^3.15.0",
+    "typescript": "^5.3.3",
+    "vitest": "^1.1.0"
+  },
+  "optionalDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^4.2.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "vite": "^5.0.0"
   }
 }

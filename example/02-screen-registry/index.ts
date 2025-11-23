@@ -23,15 +23,13 @@ const screenDemoPlugin: PluginDefinition = {
     context.screens.registerScreen({
       id: 'about',
       title: 'About Screen',
-      component: 'AboutComponent',
-      metadata: { category: 'info' }
+      component: 'AboutComponent'
     });
     
     context.screens.registerScreen({
       id: 'profile',
       title: 'User Profile',
-      component: 'ProfileComponent',
-      metadata: { requiresAuth: true }
+      component: 'ProfileComponent'
     });
     
     console.log('[Plugin] Registered 3 screens');
@@ -55,9 +53,7 @@ async function main(): Promise<void> {
     console.log(`  Screen ID: ${screen.id}`);
     console.log(`  Title: ${screen.title}`);
     console.log(`  Component: ${screen.component}`);
-    if (screen.metadata) {
-      console.log(`  Metadata:`, screen.metadata);
-    }
+    console.log(`  Component:`, screen.component);
     console.log('');
   });
   

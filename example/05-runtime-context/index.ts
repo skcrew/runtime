@@ -40,7 +40,7 @@ const contextDemoPlugin: PluginDefinition = {
     
     // Subscribe to events
     context.events.on('data:refreshed', (data) => {
-      console.log('[Event] Data refresh completed at:', new Date(data.timestamp).toISOString());
+      console.log('[Event] Data refresh completed at:', new Date((data as any).timestamp).toISOString());
     });
     
     // Access plugin registry
