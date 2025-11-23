@@ -2,6 +2,7 @@ import * as readline from 'readline';
 import { UIProvider, ScreenDefinition, RuntimeContext } from '../../src/types.js';
 import { getCounterValue } from '../plugins/counter.js';
 import { getAllSettings } from '../plugins/settings.js';
+import { getDemoEventLog } from '../plugins/core-demo.js';
 
 /**
  * Terminal UI Provider
@@ -223,6 +224,21 @@ export class TerminalUIProvider implements UIProvider {
       case 'SettingsScreen':
         this.renderSettingsScreen();
         break;
+      case 'DemoPluginSystemScreen':
+        this.renderDemoPluginSystemScreen();
+        break;
+      case 'DemoScreenRegistryScreen':
+        this.renderDemoScreenRegistryScreen();
+        break;
+      case 'DemoActionEngineScreen':
+        this.renderDemoActionEngineScreen();
+        break;
+      case 'DemoEventBusScreen':
+        this.renderDemoEventBusScreen();
+        break;
+      case 'DemoRuntimeContextScreen':
+        this.renderDemoRuntimeContextScreen();
+        break;
       default:
         console.log(`Screen component "${screen.component}" not implemented`);
     }
@@ -339,6 +355,113 @@ export class TerminalUIProvider implements UIProvider {
   }
 
   /**
+   * Render the demo plugin system screen
+   */
+  private renderDemoPluginSystemScreen(): void {
+    if (!this.context) return;
+    
+    console.log('Plugin System Demonstration');
+    console.log('');
+    console.log('This screen demonstrates plugin registration and lifecycle.');
+    console.log('');
+    
+    const plugins = this.context.plugins.getAllPlugins();
+    console.log(`Total Plugins Registered: ${plugins.length}`);
+    console.log('');
+    console.log('Registered Plugins:');
+    plugins.forEach(plugin => {
+      console.log(`  • ${plugin.name} (v${plugin.version})`);
+    });
+    console.log('');
+    console.log('Each plugin can contribute screens, actions, and event handlers.');
+    console.log('Plugins are initialized in registration order during runtime startup.');
+    console.log('');
+  }
+
+  /**
+   * Render the demo screen registry screen
+   */
+  private renderDemoScreenRegistryScreen(): void {
+    if (!this.context) return;
+    
+    console.log('Screen Registry Demonstration');
+    console.log('');
+    console.log('This screen demonstrates screen management and lookup.');
+    console.log('');
+    
+    const screens = this.context.screens.getAllScreens();
+    console.log(`Total Screens Registered: ${screens.length}`);
+    console.log('');
+    console.log('Registered Screens:');
+    screens.forEach(screen => {
+      console.log(`  • ${screen.id}: "${screen.title}" (${screen.component})`);
+    });
+    console.log('');
+    console.log('Screens are declarative definitions that UI providers render.');
+    console.log('The same screen can be rendered differently by different UI providers.');
+    console.log('');
+  }
+
+  /**
+   * Render the demo action engine screen
+   */
+  private renderDemoActionEngineScreen(): void {
+    console.log('Action Engine Demonstration');
+    console.log('');
+    console.log('This screen demonstrates action registration and execution.');
+    console.log('');
+    console.log('Actions are executable operations with handlers.');
+    console.log('They can accept parameters and return results.');
+    console.log('');
+    console.log('Try the interactive actions below to see how they work!');
+    console.log('');
+  }
+
+  /**
+   * Render the demo event bus screen
+   */
+  private renderDemoEventBusScreen(): void {
+    console.log('Event Bus Demonstration');
+    console.log('');
+    console.log('This screen demonstrates event emission and subscription.');
+    console.log('');
+    console.log('Events enable loose coupling between plugins.');
+    console.log('Multiple subscribers can react to the same event.');
+    console.log('');
+    
+    const demoLog = getDemoEventLog();
+    if (demoLog.length > 0) {
+      console.log('Recent Demo Events:');
+      demoLog.slice(-5).forEach(entry => {
+        console.log(`  • ${entry.event} at ${entry.timestamp}`);
+        console.log(`    Data: ${JSON.stringify(entry.data)}`);
+      });
+      console.log('');
+    }
+    
+    console.log('Use the "Emit Event" action to trigger a custom event!');
+    console.log('');
+  }
+
+  /**
+   * Render the demo runtime context screen
+   */
+  private renderDemoRuntimeContextScreen(): void {
+    console.log('Runtime Context Demonstration');
+    console.log('');
+    console.log('This screen demonstrates the unified context API.');
+    console.log('');
+    console.log('RuntimeContext provides access to all subsystems:');
+    console.log('  • context.plugins - Plugin registry');
+    console.log('  • context.screens - Screen registry');
+    console.log('  • context.actions - Action engine');
+    console.log('  • context.events - Event bus');
+    console.log('');
+    console.log('Use the actions below to explore the context API!');
+    console.log('');
+  }
+
+  /**
    * Display available actions for the current screen
    * @see Requirements 7.3
    */
@@ -355,6 +478,19 @@ export class TerminalUIProvider implements UIProvider {
         break;
       case 'SettingsScreen':
         console.log(FormatHelper.actionItem('t', 'Toggle Theme'));
+        break;
+      case 'DemoActionEngineScreen':
+        console.log(FormatHelper.actionItem('g', 'Greet (no params)'));
+        console.log(FormatHelper.actionItem('u', 'Greet User (with name)'));
+        console.log(FormatHelper.actionItem('c', 'Calculate (with params)'));
+        break;
+      case 'DemoEventBusScreen':
+        console.log(FormatHelper.actionItem('e', 'Emit Event'));
+        break;
+      case 'DemoRuntimeContextScreen':
+        console.log(FormatHelper.actionItem('p', 'List Plugins'));
+        console.log(FormatHelper.actionItem('s', 'List Screens'));
+        console.log(FormatHelper.actionItem('a', 'List Actions'));
         break;
     }
 
@@ -462,6 +598,136 @@ export class TerminalUIProvider implements UIProvider {
           if (this.currentScreen === 'settings') {
             const newTheme = await this.context.actions.runAction('toggle-theme');
             console.log(FormatHelper.success(`Theme changed to: ${newTheme}`));
+            const screen = this.context.screens.getScreen(this.currentScreen);
+            if (screen) this.renderScreen(screen);
+          } else {
+            console.log(FormatHelper.error('Invalid action for this screen'));
+            this.promptUserInput();
+          }
+          break;
+
+        case 'g':
+          if (this.currentScreen === 'demo-action-engine') {
+            const result = await this.context.actions.runAction('demo:greet');
+            console.log(FormatHelper.success(`Result: ${result}`));
+            const screen = this.context.screens.getScreen(this.currentScreen);
+            if (screen) this.renderScreen(screen);
+          } else {
+            console.log(FormatHelper.error('Invalid action for this screen'));
+            this.promptUserInput();
+          }
+          break;
+
+        case 'u':
+          if (this.currentScreen === 'demo-action-engine') {
+            // Prompt for name
+            if (this.rl) {
+              this.rl.question('Enter name: ', async (name) => {
+                try {
+                  const result = await this.context!.actions.runAction('demo:greet-user', { name });
+                  console.log(FormatHelper.success(`Result: ${result}`));
+                  const screen = this.context!.screens.getScreen(this.currentScreen!);
+                  if (screen) this.renderScreen(screen);
+                } catch (error) {
+                  console.log(FormatHelper.error(`Error: ${error}`));
+                  this.promptUserInput();
+                }
+              });
+            }
+          } else {
+            console.log(FormatHelper.error('Invalid action for this screen'));
+            this.promptUserInput();
+          }
+          break;
+
+        case 'c':
+          if (this.currentScreen === 'demo-action-engine') {
+            // Prompt for calculation parameters
+            if (this.rl) {
+              this.rl.question('Enter first number: ', async (a) => {
+                this.rl!.question('Enter second number: ', async (b) => {
+                  this.rl!.question('Enter operation (add/subtract/multiply/divide): ', async (operation) => {
+                    try {
+                      const result = await this.context!.actions.runAction('demo:calculate', {
+                        a: parseFloat(a),
+                        b: parseFloat(b),
+                        operation
+                      });
+                      console.log(FormatHelper.success(`Result: ${result}`));
+                      const screen = this.context!.screens.getScreen(this.currentScreen!);
+                      if (screen) this.renderScreen(screen);
+                    } catch (error) {
+                      console.log(FormatHelper.error(`Error: ${error}`));
+                      this.promptUserInput();
+                    }
+                  });
+                });
+              });
+            }
+          } else {
+            console.log(FormatHelper.error('Invalid action for this screen'));
+            this.promptUserInput();
+          }
+          break;
+
+        case 'e':
+          if (this.currentScreen === 'demo-event-bus') {
+            // Prompt for event message
+            if (this.rl) {
+              this.rl.question('Enter event message: ', async (message) => {
+                this.rl!.question('Enter priority (normal/high/low): ', async (priority) => {
+                  try {
+                    await this.context!.actions.runAction('demo:emit-event', {
+                      message,
+                      priority: priority || 'normal'
+                    });
+                    console.log(FormatHelper.success('Event emitted successfully!'));
+                    const screen = this.context!.screens.getScreen(this.currentScreen!);
+                    if (screen) this.renderScreen(screen);
+                  } catch (error) {
+                    console.log(FormatHelper.error(`Error: ${error}`));
+                    this.promptUserInput();
+                  }
+                });
+              });
+            }
+          } else {
+            console.log(FormatHelper.error('Invalid action for this screen'));
+            this.promptUserInput();
+          }
+          break;
+
+        case 'p':
+          if (this.currentScreen === 'demo-runtime-context') {
+            const result = await this.context.actions.runAction('demo:list-plugins');
+            console.log(FormatHelper.success('Plugins:'));
+            console.log(JSON.stringify(result, null, 2));
+            const screen = this.context.screens.getScreen(this.currentScreen);
+            if (screen) this.renderScreen(screen);
+          } else {
+            console.log(FormatHelper.error('Invalid action for this screen'));
+            this.promptUserInput();
+          }
+          break;
+
+        case 's':
+          if (this.currentScreen === 'demo-runtime-context') {
+            const result = await this.context.actions.runAction('demo:list-screens');
+            console.log(FormatHelper.success('Screens:'));
+            console.log(JSON.stringify(result, null, 2));
+            const screen = this.context.screens.getScreen(this.currentScreen);
+            if (screen) this.renderScreen(screen);
+          } else {
+            console.log(FormatHelper.error('Invalid action for this screen'));
+            this.promptUserInput();
+          }
+          break;
+
+        case 'a':
+          if (this.currentScreen === 'demo-runtime-context') {
+            const result = await this.context.actions.runAction('demo:list-actions');
+            console.log(FormatHelper.success('Actions:'));
+            console.log(JSON.stringify(result, null, 2));
             const screen = this.context.screens.getScreen(this.currentScreen);
             if (screen) this.renderScreen(screen);
           } else {
