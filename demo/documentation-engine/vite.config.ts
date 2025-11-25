@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
-import { copyFileSync, existsSync, mkdirSync } from 'fs';
+import { existsSync } from 'fs';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
@@ -52,7 +52,6 @@ function copyParsedContent() {
     name: 'copy-parsed-content',
     closeBundle() {
       const src = resolve(__dirname, 'dist/parsed-content.json');
-      const dest = resolve(__dirname, 'dist/parsed-content.json');
       
       if (existsSync(src)) {
         console.log('Parsed content already in dist folder');
@@ -69,9 +68,47 @@ export default defineConfig({
     outDir: 'dist',
     emptyOutDir: true,
     sourcemap: true,
+    // Increase chunk size warning limit (optional - removes warning)
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
+      },
+      output: {
+        // Manual chunk splitting for better code splitting
+        manualChunks: {
+          // React and React DOM in separate chunk
+          'react-vendor': ['react', 'react-dom'],
+          
+          // Syntax highlighting (Prism is lightweight ~50KB)
+          'syntax-highlighter': ['prismjs'],
+          
+          // Code editor (CodeMirror is large ~200KB)
+          'code-editor': [
+            'codemirror',
+            '@codemirror/state',
+            '@codemirror/view',
+            '@codemirror/lang-javascript',
+            '@codemirror/theme-one-dark'
+          ],
+          
+          // Markdown parsing (Remark/Unified ~100KB)
+          'markdown-parser': [
+            'unified',
+            'remark-parse',
+            'remark-frontmatter',
+            'remark-gfm',
+            'remark-mdx',
+            'unist-util-visit'
+          ],
+          
+          // Search functionality (~50KB)
+          'search': ['minisearch'],
+        },
+        // Optimize chunk file names
+        chunkFileNames: 'assets/[name]-[hash].js',
+        entryFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]',
       },
     },
   },
@@ -86,6 +123,13 @@ export default defineConfig({
     open: true,
   },
   optimizeDeps: {
-    include: ['@codemirror/state', '@codemirror/view', '@codemirror/lang-javascript', 'codemirror'],
+    include: [
+      '@codemirror/state',
+      '@codemirror/view',
+      '@codemirror/lang-javascript',
+      'codemirror',
+      'prismjs',
+      'minisearch'
+    ],
   },
 });

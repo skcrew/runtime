@@ -308,6 +308,7 @@ export function Layout({ runtime }: LayoutProps): JSX.Element {
 
         .layout-sidebar {
           width: 280px;
+          flex-shrink: 0; /* Prevent sidebar from shrinking */
           background: var(--sidebar-bg);
           border-right: 1px solid var(--border-color);
           overflow-y: auto;
@@ -326,6 +327,8 @@ export function Layout({ runtime }: LayoutProps): JSX.Element {
           max-width: 1200px;
           margin: 0 auto;
           width: 100%;
+          min-width: 0; /* Prevent flex item from overflowing */
+          overflow-x: auto; /* Handle wide content */
         }
 
         .mobile-overlay {

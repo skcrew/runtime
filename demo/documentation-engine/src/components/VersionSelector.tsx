@@ -125,10 +125,10 @@ export const VersionSelector: React.FC<VersionSelectorProps> = ({ runtime }) => 
           align-items: center;
           gap: 0.5rem;
           padding: 0.5rem 0.75rem;
-          background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
+          background: var(--color-bg-secondary, var(--sidebar-bg, #f9fafb));
+          border: 1px solid var(--color-border, var(--border-color, #e5e7eb));
           border-radius: 6px;
-          color: var(--color-text);
+          color: var(--color-text, var(--text-color, #1f2937));
           font-size: 0.875rem;
           font-weight: 500;
           cursor: pointer;
@@ -136,8 +136,8 @@ export const VersionSelector: React.FC<VersionSelectorProps> = ({ runtime }) => 
         }
 
         .version-selector-button:hover {
-          background: var(--color-bg-tertiary);
-          border-color: var(--color-border-hover);
+          background: var(--color-bg-tertiary, var(--header-bg, #ffffff));
+          border-color: var(--color-border-hover, var(--border-color, #d1d5db));
         }
 
         .version-label {
@@ -166,12 +166,18 @@ export const VersionSelector: React.FC<VersionSelectorProps> = ({ runtime }) => 
           top: calc(100% + 0.5rem);
           right: 0;
           min-width: 200px;
-          background: var(--color-bg-primary);
-          border: 1px solid var(--color-border);
+          background: var(--color-bg-primary, var(--header-bg, #ffffff));
+          border: 1px solid var(--color-border, var(--border-color, #e5e7eb));
           border-radius: 8px;
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1);
           z-index: 1000;
           overflow: hidden;
+        }
+
+        /* Dark theme support */
+        [data-theme="dark"] .version-selector-dropdown {
+          background: var(--color-bg-primary, var(--header-bg, #2d2d2d));
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4), 0 2px 4px rgba(0, 0, 0, 0.3);
         }
 
         .version-option {
@@ -182,7 +188,7 @@ export const VersionSelector: React.FC<VersionSelectorProps> = ({ runtime }) => 
           padding: 0.75rem 1rem;
           background: transparent;
           border: none;
-          color: var(--color-text);
+          color: var(--color-text, var(--text-color, #1f2937));
           font-size: 0.875rem;
           text-align: left;
           cursor: pointer;
@@ -190,16 +196,20 @@ export const VersionSelector: React.FC<VersionSelectorProps> = ({ runtime }) => 
         }
 
         .version-option:hover {
-          background: var(--color-bg-secondary);
+          background: var(--color-bg-secondary, var(--sidebar-bg, #f3f4f6));
+        }
+
+        [data-theme="dark"] .version-option:hover {
+          background: var(--color-bg-secondary, var(--sidebar-bg, #3a3a3a));
         }
 
         .version-option.active {
-          color: var(--color-primary);
+          color: var(--color-primary, #3b82f6);
           font-weight: 600;
         }
 
         .version-check {
-          color: var(--color-primary);
+          color: var(--color-primary, #3b82f6);
         }
 
         @media (max-width: 768px) {
