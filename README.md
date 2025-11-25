@@ -453,7 +453,7 @@ my-app/
 
 ## API Reference
 
-For complete API documentation including all TypeScript interfaces, classes, methods, and types, see [API.md](API.md).
+For complete API documentation including all TypeScript interfaces, classes, methods, and types, see [API.md](docs/api/API.md).
 
 ### Quick Reference
 
@@ -493,6 +493,16 @@ ctx.events.emit(event: string, data?: unknown): void;
 ctx.events.emitAsync(event: string, data?: unknown): Promise<void>;
 ctx.events.on(event: string, handler: (data: unknown) => void): () => void;
 
+
+## Documentation
+
+📚 **[Complete Documentation](docs/README.md)**
+
+- **[API Reference](docs/api/API.md)** - Full TypeScript API documentation
+- **[Examples Guide](docs/guides/EXAMPLES_GUIDE.md)** - Learn through focused examples
+- **[Browser Tools Use Cases](docs/use-cases/BROWSER_TOOLS.md)** - Building browser extensions
+- **[Workflow Engine Use Cases](docs/use-cases/WORKFLOW_ENGINE.md)** - Creating workflow systems
+- **[Project Overview](docs/PROJECT_OVERVIEW.md)** - Architecture and design principles
 
 ## What Skeleton Crew Is NOT
 

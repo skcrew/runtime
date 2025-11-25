@@ -134,9 +134,9 @@ example/
 
 ## Next Steps
 
-- Read the [API documentation](../API.md)
-- Explore the [source code](../src/)
-- Check the [project structure](../PROJECT.MD)
+- Read the [API documentation](../api/API.md)
+- Explore the [source code](../../src/)
+- Check the [project structure](../PROJECT_OVERVIEW.md)
 - Build your own plugins
 
 ---

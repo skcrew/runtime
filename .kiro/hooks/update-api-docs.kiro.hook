@@ -1,7 +1,7 @@
 {
   "enabled": true,
   "name": "Update API Documentation",
-  "description": "Automatically updates API.md whenever core TypeScript files in the src/ directory are modified to ensure the API documentation accurately reflects the current state of the application's TypeScript interfaces, types, and exports.",
+  "description": "Automatically updates docs/api/API.md whenever core TypeScript files in the src/ directory are modified to ensure the API documentation accurately reflects the current state of the application's TypeScript interfaces, types, and exports.",
   "version": "1",
   "when": {
     "type": "fileEdited",
@@ -11,6 +11,6 @@
   },
   "then": {
     "type": "askAgent",
-    "prompt": "The core TypeScript files in src/ have been modified. Please review the changes and update API.md to accurately document the current TypeScript references, including all exported types, interfaces, classes, and functions. Ensure the documentation reflects the latest API surface of the application."
+    "prompt": "The core TypeScript files in src/ have been modified. Please review the changes and update docs/api/API.md to accurately document the current TypeScript references, including all exported types, interfaces, classes, and functions. Ensure the documentation reflects the latest API surface of the application."
   }
 }
