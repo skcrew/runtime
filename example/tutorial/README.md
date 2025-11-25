@@ -103,7 +103,7 @@ By the end, you'll understand:
 
 ## Getting Help
 
-- Check the [API documentation](../../API.md)
+- Check the [API documentation](../../docs/api/API.md)
 - Review [existing plugins](../plugins/) for patterns
 - Run tests to see expected behavior: `npm test`
 

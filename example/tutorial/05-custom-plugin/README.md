@@ -432,7 +432,7 @@ You've completed the Skeleton Crew Runtime tutorial. You now understand:
 ## Next Steps
 
 - Build a real application with Skeleton Crew
-- Explore the [API documentation](../../../API.md)
+- Explore the [API documentation](../../../docs/api/API.md)
 - Review the [playground example](../../index.ts)
 - Contribute to the project
 - Share your plugins with the community

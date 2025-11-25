@@ -170,7 +170,7 @@ Press `Ctrl+C` to exit the tutorial at any time.
 
 - Check the [main tutorial README](./README.md)
 - Review the [implementation guide](./TUTORIAL_GUIDE.md)
-- Read the [API documentation](../../API.md)
+- Read the [API documentation](../../docs/api/API.md)
 - Explore the [example applications](../README.md)
 
 ---
