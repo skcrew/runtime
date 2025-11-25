@@ -492,7 +492,7 @@ ctx.plugins.getInitializedPlugins(): string[];
 ctx.events.emit(event: string, data?: unknown): void;
 ctx.events.emitAsync(event: string, data?: unknown): Promise<void>;
 ctx.events.on(event: string, handler: (data: unknown) => void): () => void;
-
+```
 
 ## Documentation
 
