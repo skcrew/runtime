@@ -369,6 +369,44 @@ my-app/
  ├─ package.json
  └─ README.md
 ```
+### Migrating to Skeleton Crew Runtime
+Control which features use Skeleton Crew vs legacy implementation.
+
+```typescript
+const config = {
+  features: {
+    tabs: 'skeleton-crew',      // Migrated
+    settings: 'legacy',          // Not yet migrated
+    analytics: 'skeleton-crew'   // Migrated
+  }
+};
+
+class FeatureFlaggedApp {
+  constructor() {
+    this.runtime = new Runtime();
+    this.initializeFeatures();
+  }
+  
+  async initializeFeatures() {
+    if (config.features.tabs === 'skeleton-crew') {
+      this.runtime.registerPlugin(tabsPlugin);
+    } else {
+      this.legacyTabs = new LegacyTabManager();
+    }
+    
+    await this.runtime.initialize();
+  }
+  
+  async createTab(params) {
+    if (config.features.tabs === 'skeleton-crew') {
+      return this.runtime.getContext().actions.runAction('tabs:create', params);
+    } else {
+      return this.legacyTabs.create(params);
+    }
+  }
+}
+```
+See [docs/guides/migration-guide.md](docs/guides/migration-guide.md) for other migrating strategies.
 
 ## API Reference
 
@@ -458,7 +496,7 @@ npm test
 npm run example
 ```
 
-**Testing demos:** Each demo has its own test suite. See [TESTING.md](./TESTING.md) for details.
+**Testing demos:** Each demo has its own test suite.
 
 ```bash
 # Test documentation engine demo
