@@ -1,3 +1,7 @@
+---
+inclusion: manual
+---
+
 # Migration Patterns for Existing Applications
 
 This guide covers strategies for adopting Skeleton Crew Runtime in existing applications without requiring a complete rewrite.

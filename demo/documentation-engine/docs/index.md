@@ -21,7 +21,7 @@ Documentation Engine showcases the power of Skeleton Crew's plugin architecture,
 
 - **📝 Markdown & MDX Support** - Write content in markdown with embedded React components
 - **🔍 Full-Text Search** - Fast, client-side search powered by MiniSearch
-- **🎨 Syntax Highlighting** - Beautiful code blocks with Shiki
+- **🎨 Syntax Highlighting** - Beautiful code blocks with Prism
 - **🌓 Theme Support** - Built-in dark and light themes
 - **🎮 Interactive Playgrounds** - Live code editors with real-time preview
 - **📱 Responsive Design** - Works perfectly on mobile, tablet, and desktop

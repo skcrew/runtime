@@ -263,7 +263,7 @@ Both plugins expose the same action interface, demonstrating plugin interchangea
 Enhances code snippets in documentation.
 
 **Features:**
-* Syntax highlighting (Shiki or Prism)
+* Syntax highlighting (Prism)
 * Copy-to-clipboard button
 * Line highlighting (`{1,3-5}`)
 * Line numbers

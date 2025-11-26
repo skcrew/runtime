@@ -134,10 +134,9 @@ describe('Markdown Loader Plugin', () => {
       runtime.registerPlugin(plugin);
       await runtime.initialize();
 
-      // Access metadata through context
-      const context = runtime as any;
-      const pluginDef = context.plugins?.getPlugin('markdown-loader') as any;
-      const metadata = pluginDef?.markdown?.getMetadata('test-page');
+      // Access metadata through context.markdown (plugin stores itself there)
+      const context = runtime.getContext() as any;
+      const metadata = context.markdown?.getMetadata('test-page');
 
       expect(metadata).toBeDefined();
       expect(metadata?.frontmatter.title).toBe('Test');
@@ -227,9 +226,8 @@ describe('Markdown Loader Plugin', () => {
       runtime.registerPlugin(plugin);
       await runtime.initialize();
 
-      const context = runtime as any;
-      const pluginDef = context.plugins?.getPlugin('markdown-loader') as any;
-      const metadata = pluginDef?.markdown?.getMetadata('non-existent');
+      const context = runtime.getContext() as any;
+      const metadata = context.markdown?.getMetadata('non-existent');
 
       expect(metadata).toBeUndefined();
     });
@@ -265,9 +263,8 @@ describe('Markdown Loader Plugin', () => {
       runtime.registerPlugin(plugin);
       await runtime.initialize();
 
-      const context = runtime as any;
-      const pluginDef = context.plugins?.getPlugin('markdown-loader') as any;
-      const allMetadata = pluginDef?.markdown?.getAllMetadata();
+      const context = runtime.getContext() as any;
+      const allMetadata = context.markdown?.getAllMetadata();
 
       expect(allMetadata).toBeInstanceOf(Map);
       expect(allMetadata.size).toBe(2);

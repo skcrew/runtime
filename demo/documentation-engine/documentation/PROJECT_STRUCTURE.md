@@ -80,7 +80,7 @@ demo/documentation-engine/
 - **react** - UI framework
 - **react-dom** - React DOM renderer
 - **minisearch** - Client-side search
-- **shiki** - Syntax highlighting
+- **prismjs** - Syntax highlighting
 
 ### Development Dependencies
 

@@ -4,6 +4,8 @@
  * Tests theme state management, actions, and persistence.
  * 
  * @see Requirements 6.1, 6.2, 6.3, 6.4, 6.5, 11.4
+ * 
+ * @vitest-environment jsdom
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
@@ -75,13 +77,28 @@ function createMockContext(): RuntimeContext {
   };
 }
 
+// Mock localStorage for tests
+const localStorageMock = (() => {
+  let store: Record<string, string> = {};
+  return {
+    getItem: (key: string) => store[key] || null,
+    setItem: (key: string, value: string) => { store[key] = value.toString(); },
+    removeItem: (key: string) => { delete store[key]; },
+    clear: () => { store = {}; },
+    get length() { return Object.keys(store).length; },
+    key: (index: number) => Object.keys(store)[index] || null,
+  };
+})();
+
+global.localStorage = localStorageMock as Storage;
+
 describe('Theme Plugin', () => {
   let context: RuntimeContextWithTheme;
   let plugin: ReturnType<typeof createThemePlugin>;
 
   beforeEach(() => {
     // Clear localStorage before each test
-    localStorage.clear();
+    localStorageMock.clear();
     
     // Remove any theme attributes from document
     document.documentElement.removeAttribute('data-theme');
