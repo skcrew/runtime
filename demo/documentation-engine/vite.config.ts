@@ -64,6 +64,12 @@ export default defineConfig({
   plugins: [react(), watchDocsFolder(), copyParsedContent()],
   root: '.',
   publicDir: 'public',
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['./tests/setup.ts'],
+    include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
+  },
   build: {
     outDir: 'dist',
     emptyOutDir: true,

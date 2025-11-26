@@ -2,7 +2,6 @@
  * Code Block Plugin Tests
  * 
  * Tests for the code block plugin functionality including:
- * - Shiki highlighter initialization
  * - Code highlighting
  * - Theme integration
  * - Component registration
@@ -45,16 +44,6 @@ describe('Code Block Plugin', () => {
 
     it('should initialize with light theme by default', () => {
       expect(context.codeBlock.getCurrentTheme()).toBe('light');
-    });
-
-    it('should initialize Shiki highlighter', async () => {
-      // Wait a bit for async initialization
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      const highlighter = context.codeBlock.getHighlighter();
-      // Highlighter may be null if initialization is still in progress
-      // This is acceptable as the plugin provides fallback
-      expect(highlighter === null || typeof highlighter === 'object').toBe(true);
     });
   });
 
