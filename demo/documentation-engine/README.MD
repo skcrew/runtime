@@ -8,7 +8,7 @@ This demo showcases Skeleton Crew Runtime's capabilities by implementing a compl
 
 - 📝 Markdown and MDX support
 - 🔍 Full-text search
-- 🎨 Syntax highlighting with Shiki
+- 🎨 Syntax highlighting with Prism
 - 🌓 Dark/light theme
 - 🎮 Interactive code playgrounds
 - 📱 Responsive design

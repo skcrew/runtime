@@ -26,7 +26,7 @@ Documentation Engine is a powerful, plugin-driven documentation system built on 
 First, install the required dependencies:
 
 ```bash
-npm install skeleton-crew-runtime unified remark react react-dom minisearch shiki
+npm install skeleton-crew-runtime unified remark react react-dom minisearch prismjs
 ```
 
 For development, you'll also want:

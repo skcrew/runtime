@@ -40,7 +40,6 @@
     "remark-gfm": "^4.0.0",
     "remark-mdx": "^3.0.0",
     "remark-parse": "^11.0.0",
-    "shiki": "^0.14.7",
     "skeleton-crew-runtime": "file:../..",
     "unified": "^11.0.4",
     "unist-util-visit": "^5.0.0",

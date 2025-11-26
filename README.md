@@ -451,11 +451,21 @@ npm install
 # Build the project
 npm run build
 
-# Run tests
+# Run tests (core runtime only)
 npm test
 
 # Run example application
 npm run example
+```
+
+**Testing demos:** Each demo has its own test suite. See [TESTING.md](./TESTING.md) for details.
+
+```bash
+# Test documentation engine demo
+cd demo/documentation-engine && npm test
+
+# Test tab manager demo
+cd demo/tab-manager && npm test
 ```
 
 ## TypeScript Support

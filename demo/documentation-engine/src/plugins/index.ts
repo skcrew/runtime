@@ -14,7 +14,7 @@ export { createComponentRegistryPlugin } from './component-registry.js';
 // Feature plugins
 export { createSidebarPlugin } from './sidebar.js';
 export { createSearchPlugin } from './search.js';
-export { createCodeBlockPlugin } from './code-block-prism.js';
+export { createCodeBlockPlugin } from './code-block.js';
 export { createThemePlugin } from './theme.js';
 export { createPlaygroundPlugin } from './playground.js';
 export { createVersioningPlugin } from './versioning.js';
