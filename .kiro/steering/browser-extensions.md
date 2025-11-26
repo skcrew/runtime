@@ -1,5 +1,5 @@
 ---
-inclusion: always
+inclusion: manual
 ---
 
 # Browser Extension Development with Skeleton Crew Runtime

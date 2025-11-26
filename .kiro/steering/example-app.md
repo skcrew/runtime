@@ -1,3 +1,7 @@
+---
+inclusion: manual
+---
+
 # Example Application Guidelines
 
 ## Purpose
