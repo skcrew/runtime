@@ -1,0 +1,32 @@
+{
+  "name": "collab-hub",
+  "version": "1.0.0",
+  "description": "Real-time collaboration hub built on Skeleton Crew Runtime",
+  "type": "module",
+  "scripts": {
+    "server": "node dist/server.js",
+    "client": "node dist/client.js",
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest --run",
+    "test:watch": "vitest",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "skeleton-crew-runtime": "file:../..",
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/ws": "^8.5.10",
+    "typescript": "^5.3.3",
+    "vitest": "^1.0.4"
+  },
+  "keywords": [
+    "collaboration",
+    "real-time",
+    "skeleton-crew"
+  ],
+  "author": "",
+  "license": "MIT"
+}
