@@ -203,7 +203,10 @@ export class Runtime {
     this.events.clear();
     this.plugins.clear();
 
-    // 4. Set initialized flag to false (Requirement 4.5)
+    // 4. Clear context reference in ActionEngine to break circular reference
+    this.actions.setContext(null as any);
+
+    // 5. Set initialized flag to false (Requirement 4.5)
     this.initialized = false;
     
     // Set state to Shutdown (Requirement 16.4)

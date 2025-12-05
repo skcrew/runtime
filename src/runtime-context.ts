@@ -1,4 +1,4 @@
-import type { RuntimeContext, ScreenDefinition, ActionDefinition, PluginDefinition } from './types.js';
+import type { RuntimeContext, ScreenDefinition, ActionDefinition, PluginDefinition, IntrospectionAPI } from './types.js';
 import type { ScreenRegistry } from './screen-registry.js';
 import type { ActionEngine } from './action-engine.js';
 import type { PluginRegistry } from './plugin-registry.js';
@@ -50,6 +50,7 @@ export class RuntimeContextImpl implements RuntimeContext {
   private eventBus: EventBus;
   private runtime: Runtime;
   private frozenHostContext: Readonly<Record<string, unknown>>;
+  private introspectionAPI: IntrospectionAPI;
 
   constructor(
     screenRegistry: ScreenRegistry,
@@ -67,6 +68,10 @@ export class RuntimeContextImpl implements RuntimeContext {
     // Cache the frozen copy to avoid creating new objects on every access
     // This prevents memory leaks when host context is accessed repeatedly
     this.frozenHostContext = Object.freeze({ ...hostContext });
+    
+    // Cache the introspection API to avoid creating new objects on every access
+    // This prevents memory leaks when introspection is used repeatedly
+    this.introspectionAPI = this.createIntrospectionAPI();
   }
 
   /**
@@ -164,8 +169,19 @@ export class RuntimeContextImpl implements RuntimeContext {
   /**
    * Introspection API - query runtime metadata
    * Requirements: 3.1, 4.1, 5.1, 6.1
+   * 
+   * Returns a cached introspection API object to prevent memory leaks
+   * from repeated access.
    */
-  get introspect() {
+  get introspect(): IntrospectionAPI {
+    return this.introspectionAPI;
+  }
+
+  /**
+   * Creates the introspection API object.
+   * Called once during construction and cached.
+   */
+  private createIntrospectionAPI(): IntrospectionAPI {
     return {
       /**
        * List all registered action IDs
