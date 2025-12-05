@@ -49,7 +49,7 @@ export class RuntimeContextImpl implements RuntimeContext {
   private pluginRegistry: PluginRegistry;
   private eventBus: EventBus;
   private runtime: Runtime;
-  private hostContext: Record<string, unknown>;
+  private frozenHostContext: Readonly<Record<string, unknown>>;
 
   constructor(
     screenRegistry: ScreenRegistry,
@@ -64,7 +64,9 @@ export class RuntimeContextImpl implements RuntimeContext {
     this.pluginRegistry = pluginRegistry;
     this.eventBus = eventBus;
     this.runtime = runtime;
-    this.hostContext = hostContext;
+    // Cache the frozen copy to avoid creating new objects on every access
+    // This prevents memory leaks when host context is accessed repeatedly
+    this.frozenHostContext = Object.freeze({ ...hostContext });
   }
 
   /**
@@ -151,11 +153,12 @@ export class RuntimeContextImpl implements RuntimeContext {
    * Host context - readonly access to injected host services
    * Requirements: 1.2, 1.3, 1.4
    * 
-   * Returns a frozen shallow copy of the host context to prevent mutation.
+   * Returns a cached frozen shallow copy of the host context to prevent mutation.
    * This ensures plugins can access host services but cannot modify them.
+   * The frozen copy is cached to avoid memory leaks from repeated access.
    */
   get host(): Readonly<Record<string, unknown>> {
-    return Object.freeze({ ...this.hostContext });
+    return this.frozenHostContext;
   }
 
   /**
