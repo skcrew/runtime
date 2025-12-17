@@ -30,3 +30,13 @@ export {
   ActionExecutionError,
   RuntimeState
 } from './types.js';
+
+export {
+  createPerformanceMonitor,
+  NoOpPerformanceMonitor,
+  SimplePerformanceMonitor
+} from './performance.js';
+
+export type {
+  PerformanceMonitor
+} from './performance.js';

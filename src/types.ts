@@ -199,6 +199,7 @@ export interface Runtime {
 export interface RuntimeOptions {
   logger?: Logger;
   hostContext?: Record<string, unknown>;
+  enablePerformanceMonitoring?: boolean;
 }
 
 /**

@@ -6,6 +6,7 @@ import { ActionEngine } from './action-engine.js';
 import { EventBus } from './event-bus.js';
 import { UIBridge } from './ui-bridge.js';
 import { RuntimeContextImpl } from './runtime-context.js';
+import { createPerformanceMonitor, type PerformanceMonitor } from './performance.js';
 
 /**
  * Runtime is the main orchestrator that coordinates all subsystems.
@@ -25,6 +26,7 @@ export class Runtime {
   private logger: Logger;
   private state: RuntimeState = RuntimeState.Uninitialized;
   private hostContext: Record<string, unknown>;
+  private performanceMonitor: PerformanceMonitor;
 
   /**
    * Creates a new Runtime instance with optional configuration.
@@ -38,6 +40,7 @@ export class Runtime {
   constructor(options?: RuntimeOptions) {
     this.logger = options?.logger ?? new ConsoleLogger();
     this.hostContext = options?.hostContext ?? {};
+    this.performanceMonitor = createPerformanceMonitor(options?.enablePerformanceMonitoring ?? false);
     this.validateHostContext(this.hostContext);
   }
 
@@ -109,6 +112,8 @@ export class Runtime {
     // Set state to Initializing (Requirement 16.2)
     this.state = RuntimeState.Initializing;
 
+    const timer = this.performanceMonitor.startTimer('runtime:initialize');
+
     try {
       // Strict initialization sequence (Requirements 2.1, 2.2, 2.3, 2.4)
       
@@ -158,9 +163,13 @@ export class Runtime {
       
       // Emit runtime:initialized event (Requirements 17.1, 17.2, 17.3)
       this.events.emit('runtime:initialized', { context: this.context });
+      
+      // Record initialization performance
+      timer();
     } catch (error) {
       // Reset state to Uninitialized on failure (Requirement 16.5)
       this.state = RuntimeState.Uninitialized;
+      timer(); // Still record timing for failed initializations
       throw error;
     }
   }
