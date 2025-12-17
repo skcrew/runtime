@@ -1,6 +1,8 @@
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  // Vite cache directory (fixes deprecation warning)
+  cacheDir: './node_modules/.vite',
   test: {
     include: ['tests/**/*.test.ts'],
     exclude: ['**/node_modules/**', '**/dist/**', 'demo/**', 'example/**'],
@@ -12,10 +14,6 @@ export default defineConfig({
         minThreads: 1,
         maxThreads: 4
       }
-    },
-    // Faster test discovery
-    cache: {
-      dir: './node_modules/.vitest'
     },
     // Optimize for CI/local development
     reporter: process.env.CI ? 'dot' : 'default',
