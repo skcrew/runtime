@@ -51,6 +51,12 @@ export class RuntimeContextImpl implements RuntimeContext {
   private runtime: Runtime;
   private frozenHostContext: Readonly<Record<string, unknown>>;
   private introspectionAPI: IntrospectionAPI;
+  
+  // Cache API objects to prevent memory leaks from repeated access
+  private cachedScreensAPI: any;
+  private cachedActionsAPI: any;
+  private cachedPluginsAPI: any;
+  private cachedEventsAPI: any;
 
   constructor(
     screenRegistry: ScreenRegistry,
@@ -72,6 +78,12 @@ export class RuntimeContextImpl implements RuntimeContext {
     // Cache the introspection API to avoid creating new objects on every access
     // This prevents memory leaks when introspection is used repeatedly
     this.introspectionAPI = this.createIntrospectionAPI();
+    
+    // Pre-create and cache API objects to prevent memory leaks
+    this.cachedScreensAPI = this.createScreensAPI();
+    this.cachedActionsAPI = this.createActionsAPI();
+    this.cachedPluginsAPI = this.createPluginsAPI();
+    this.cachedEventsAPI = this.createEventsAPI();
   }
 
   /**
@@ -79,6 +91,10 @@ export class RuntimeContextImpl implements RuntimeContext {
    * Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 10.1, 10.2, 10.3, 10.4, 10.5
    */
   get screens() {
+    return this.cachedScreensAPI;
+  }
+
+  private createScreensAPI() {
     return {
       registerScreen: (screen: ScreenDefinition): (() => void) => {
         return this.screenRegistry.registerScreen(screen);
@@ -97,6 +113,10 @@ export class RuntimeContextImpl implements RuntimeContext {
    * Requirements: 4.1, 4.2, 4.3, 4.4, 4.5
    */
   get actions() {
+    return this.cachedActionsAPI;
+  }
+
+  private createActionsAPI() {
     return {
       registerAction: <P = unknown, R = unknown>(action: ActionDefinition<P, R>): (() => void) => {
         return this.actionEngine.registerAction(action);
@@ -112,6 +132,10 @@ export class RuntimeContextImpl implements RuntimeContext {
    * Requirements: 13.1, 13.2, 13.3, 13.4, 13.5
    */
   get plugins() {
+    return this.cachedPluginsAPI;
+  }
+
+  private createPluginsAPI() {
     return {
       registerPlugin: (plugin: PluginDefinition): void => {
         this.pluginRegistry.registerPlugin(plugin);
@@ -133,6 +157,10 @@ export class RuntimeContextImpl implements RuntimeContext {
    * Requirements: 12.1, 12.2, 12.3, 12.4, 12.5
    */
   get events() {
+    return this.cachedEventsAPI;
+  }
+
+  private createEventsAPI() {
     return {
       emit: (event: string, data?: unknown): void => {
         this.eventBus.emit(event, data);

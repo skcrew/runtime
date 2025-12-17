@@ -29,12 +29,25 @@ export class EventBus {
   emit(event: string, data?: unknown): void {
     const eventHandlers = this.handlers.get(event);
     
-    // If no handlers registered for this event, do nothing
-    if (!eventHandlers) {
+    // Fast path: If no handlers registered for this event, do nothing
+    if (!eventHandlers || eventHandlers.size === 0) {
       return;
     }
 
-    // Invoke all handlers synchronously in registration order (Requirements 8.6, 8.7)
+    // Optimize for single handler case (common scenario)
+    if (eventHandlers.size === 1) {
+      const handler = eventHandlers.values().next().value;
+      if (handler) {
+        try {
+          handler(data);
+        } catch (error) {
+          this.logger.error(`Event handler for "${event}" threw error`, error);
+        }
+      }
+      return;
+    }
+
+    // Multiple handlers: Invoke all handlers synchronously in registration order
     // Set maintains insertion order, so iteration is in registration order
     // Wrap each handler in try-catch to ensure all handlers are invoked (Requirements 2.1, 2.2, 2.4, 2.5)
     for (const handler of eventHandlers) {

@@ -118,6 +118,7 @@ export class ActionEngine {
 
   /**
    * Runs an action handler with a timeout.
+   * Uses Promise.race with proper cleanup to ensure timeout behavior is preserved.
    * 
    * @param action - The action definition with timeout
    * @param params - Parameters to pass to the handler
@@ -130,21 +131,29 @@ export class ActionEngine {
     action: ActionDefinition<any, any>,
     params: unknown
   ): Promise<unknown> {
-    return new Promise((resolve, reject) => {
-      const timeoutId = setTimeout(() => {
+    let timeoutId: NodeJS.Timeout | number;
+    
+    // Create timeout promise that rejects with ActionTimeoutError
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => {
         reject(new ActionTimeoutError(action.id, action.timeout!));
       }, action.timeout);
-
-      Promise.resolve(action.handler(params, this.context!))
-        .then(result => {
-          clearTimeout(timeoutId);
-          resolve(result);
-        })
-        .catch(error => {
-          clearTimeout(timeoutId);
-          reject(error);
-        });
     });
+
+    // Create handler promise
+    const handlerPromise = Promise.resolve(action.handler(params, this.context!));
+
+    try {
+      // Race between handler and timeout
+      const result = await Promise.race([handlerPromise, timeoutPromise]);
+      // Clear timeout if handler completes first
+      clearTimeout(timeoutId!);
+      return result;
+    } catch (error) {
+      // Clear timeout on any error
+      clearTimeout(timeoutId!);
+      throw error;
+    }
   }
 
   /**
