@@ -23,7 +23,7 @@ export class Runtime {
   private context!: RuntimeContext;
   private initialized: boolean = false;
   private pendingPlugins: PluginDefinition[] = [];
-  private logger: Logger;
+  public readonly logger: Logger;
   private state: RuntimeState = RuntimeState.Uninitialized;
   private hostContext: Record<string, unknown>;
   private performanceMonitor: PerformanceMonitor;
@@ -145,7 +145,8 @@ export class Runtime {
         this.plugins,
         this.events,
         this,
-        this.hostContext
+        this.hostContext,
+        this.logger
       );
       
       // 7. Pass RuntimeContext to ActionEngine (Requirement 9.9)
