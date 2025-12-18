@@ -170,6 +170,11 @@ export interface RuntimeContext {
   };
   getRuntime(): Runtime;
   
+  /**
+   * Logger instance for plugins to use
+   */
+  readonly logger: Logger;
+  
   // Migration Support
   /**
    * Readonly access to host context injected at runtime initialization

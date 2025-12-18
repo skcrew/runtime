@@ -1,9 +1,9 @@
-import type { RuntimeContext, ScreenDefinition, ActionDefinition, PluginDefinition, IntrospectionAPI } from './types.js';
+import type { RuntimeContext, ScreenDefinition, ActionDefinition, PluginDefinition, IntrospectionAPI, Logger } from './types.js';
 import type { ScreenRegistry } from './screen-registry.js';
 import type { ActionEngine } from './action-engine.js';
 import type { PluginRegistry } from './plugin-registry.js';
 import type { EventBus } from './event-bus.js';
-import type { Runtime } from './types.js';
+import type { Runtime } from './runtime.js';
 
 /**
  * Deep freeze utility - recursively freezes an object and all nested objects.
@@ -51,6 +51,7 @@ export class RuntimeContextImpl implements RuntimeContext {
   private runtime: Runtime;
   private frozenHostContext: Readonly<Record<string, unknown>>;
   private introspectionAPI: IntrospectionAPI;
+  private loggerInstance: Logger;
   
   // Cache API objects to prevent memory leaks from repeated access
   private cachedScreensAPI: any;
@@ -64,13 +65,15 @@ export class RuntimeContextImpl implements RuntimeContext {
     pluginRegistry: PluginRegistry,
     eventBus: EventBus,
     runtime: Runtime,
-    hostContext: Record<string, unknown>
+    hostContext: Record<string, unknown>,
+    logger: Logger
   ) {
     this.screenRegistry = screenRegistry;
     this.actionEngine = actionEngine;
     this.pluginRegistry = pluginRegistry;
     this.eventBus = eventBus;
     this.runtime = runtime;
+    this.loggerInstance = logger;
     // Cache the frozen copy to avoid creating new objects on every access
     // This prevents memory leaks when host context is accessed repeatedly
     this.frozenHostContext = Object.freeze({ ...hostContext });
@@ -180,6 +183,13 @@ export class RuntimeContextImpl implements RuntimeContext {
    */
   getRuntime(): Runtime {
     return this.runtime;
+  }
+
+  /**
+   * Logger instance for plugins to use
+   */
+  get logger(): Logger {
+    return this.loggerInstance;
   }
 
   /**
