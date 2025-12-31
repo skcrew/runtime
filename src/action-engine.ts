@@ -132,7 +132,7 @@ export class ActionEngine {
     params: unknown
   ): Promise<unknown> {
     let timeoutId: NodeJS.Timeout | number;
-    
+
     // Create timeout promise that rejects with ActionTimeoutError
     const timeoutPromise = new Promise<never>((_, reject) => {
       timeoutId = setTimeout(() => {

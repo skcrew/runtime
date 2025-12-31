@@ -116,28 +116,28 @@ export class Runtime {
 
     try {
       // Strict initialization sequence (Requirements 2.1, 2.2, 2.3, 2.4)
-      
+
       // 1. Create PluginRegistry (Requirement 2.1)
       this.plugins = new PluginRegistry(this.logger);
-      
+
       // Register pending plugins
       for (const plugin of this.pendingPlugins) {
         this.plugins.registerPlugin(plugin);
       }
       this.pendingPlugins = [];
-      
+
       // 2. Create ScreenRegistry (Requirement 2.2)
       this.screens = new ScreenRegistry(this.logger);
-      
+
       // 3. Create ActionEngine (Requirement 2.3)
       this.actions = new ActionEngine(this.logger);
-      
+
       // 4. Create EventBus (Requirement 2.4)
       this.events = new EventBus(this.logger);
-      
+
       // 5. Create UIBridge
       this.ui = new UIBridge(this.logger);
-      
+
       // 6. Create RuntimeContext after all subsystems (Requirements 1.2, 2.4, 9.7)
       this.context = new RuntimeContextImpl(
         this.screens,
@@ -148,23 +148,23 @@ export class Runtime {
         this.hostContext,
         this.logger
       );
-      
+
       // 7. Pass RuntimeContext to ActionEngine (Requirement 9.9)
       this.actions.setContext(this.context);
-      
+
       // 8. Execute plugin setup callbacks in registration order (Requirements 2.5, 2.6, 3.1)
       // This will abort on first plugin setup failure (Requirement 3.1)
       await this.plugins.executeSetup(this.context);
-      
+
       // Mark as initialized
       this.initialized = true;
-      
+
       // Set state to Initialized (Requirement 16.2)
       this.state = RuntimeState.Initialized;
-      
+
       // Emit runtime:initialized event (Requirements 17.1, 17.2, 17.3)
       this.events.emit('runtime:initialized', { context: this.context });
-      
+
       // Record initialization performance
       timer();
     } catch (error) {
@@ -191,7 +191,7 @@ export class Runtime {
 
     // Set state to ShuttingDown (Requirement 16.4)
     this.state = RuntimeState.ShuttingDown;
-    
+
     // Emit runtime:shutdown event (Requirements 17.4, 17.5)
     this.events.emit('runtime:shutdown', { context: this.context });
 
@@ -218,7 +218,7 @@ export class Runtime {
 
     // 5. Set initialized flag to false (Requirement 4.5)
     this.initialized = false;
-    
+
     // Set state to Shutdown (Requirement 16.4)
     this.state = RuntimeState.Shutdown;
   }
@@ -299,7 +299,7 @@ export class Runtime {
   renderScreen(screenId: string): unknown {
     // Look up the screen in the registry
     const screen = this.screens.getScreen(screenId);
-    
+
     // Throw if screen not found
     if (screen === null) {
       throw new Error(`Screen with id "${screenId}" not found`);

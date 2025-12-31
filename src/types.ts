@@ -169,19 +169,19 @@ export interface RuntimeContext {
     on(event: string, handler: (data: unknown) => void): () => void;
   };
   getRuntime(): Runtime;
-  
+
   /**
    * Logger instance for plugins to use
    */
   readonly logger: Logger;
-  
+
   // Migration Support
   /**
    * Readonly access to host context injected at runtime initialization
    * @see Requirements 1.3, 1.4, 9.2
    */
   readonly host: Readonly<Record<string, unknown>>;
-  
+
   /**
    * Introspection API for querying runtime metadata
    * @see Requirements 3.1, 4.1, 5.1, 6.1, 9.2

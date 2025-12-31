@@ -52,7 +52,7 @@ export class RuntimeContextImpl implements RuntimeContext {
   private frozenHostContext: Readonly<Record<string, unknown>>;
   private introspectionAPI: IntrospectionAPI;
   private loggerInstance: Logger;
-  
+
   // Cache API objects to prevent memory leaks from repeated access
   private cachedScreensAPI: any;
   private cachedActionsAPI: any;
@@ -77,11 +77,11 @@ export class RuntimeContextImpl implements RuntimeContext {
     // Cache the frozen copy to avoid creating new objects on every access
     // This prevents memory leaks when host context is accessed repeatedly
     this.frozenHostContext = Object.freeze({ ...hostContext });
-    
+
     // Cache the introspection API to avoid creating new objects on every access
     // This prevents memory leaks when introspection is used repeatedly
     this.introspectionAPI = this.createIntrospectionAPI();
-    
+
     // Pre-create and cache API objects to prevent memory leaks
     this.cachedScreensAPI = this.createScreensAPI();
     this.cachedActionsAPI = this.createActionsAPI();
@@ -236,13 +236,13 @@ export class RuntimeContextImpl implements RuntimeContext {
       getActionDefinition: (id: string) => {
         const action = this.actionEngine.getAction(id);
         if (!action) return null;
-        
+
         // Extract only id and timeout (exclude handler function)
         const metadata = {
           id: action.id,
           timeout: action.timeout
         };
-        
+
         // Deep freeze the metadata
         return deepFreeze(metadata);
       },
@@ -262,13 +262,13 @@ export class RuntimeContextImpl implements RuntimeContext {
       getPluginDefinition: (name: string) => {
         const plugin = this.pluginRegistry.getPlugin(name);
         if (!plugin) return null;
-        
+
         // Extract only name and version (exclude setup/dispose functions)
         const metadata = {
           name: plugin.name,
           version: plugin.version
         };
-        
+
         // Deep freeze the metadata
         return deepFreeze(metadata);
       },
@@ -288,14 +288,14 @@ export class RuntimeContextImpl implements RuntimeContext {
       getScreenDefinition: (id: string) => {
         const screen = this.screenRegistry.getScreen(id);
         if (!screen) return null;
-        
+
         // Include all screen properties
         const metadata = {
           id: screen.id,
           title: screen.title,
           component: screen.component
         };
-        
+
         // Deep freeze the metadata
         return deepFreeze(metadata);
       },
@@ -311,7 +311,7 @@ export class RuntimeContextImpl implements RuntimeContext {
           totalPlugins: this.pluginRegistry.getAllPlugins().length,
           totalScreens: this.screenRegistry.getAllScreens().length
         };
-        
+
         // Deep freeze the metadata
         return deepFreeze(metadata);
       }

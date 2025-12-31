@@ -56,7 +56,7 @@ export class PluginRegistry {
   async executeSetup(context: RuntimeContext): Promise<void> {
     const initialized: string[] = [];
     let failingPluginName: string | undefined;
-    
+
     try {
       // Execute plugin setup callbacks sequentially in registration order
       for (const plugin of this.plugins.values()) {
@@ -71,11 +71,11 @@ export class PluginRegistry {
     } catch (error) {
       // Rollback: dispose already-initialized plugins in reverse order
       this.logger.error('Plugin setup failed, rolling back initialized plugins');
-      
+
       for (let i = initialized.length - 1; i >= 0; i--) {
         const pluginName = initialized[i];
         const plugin = this.plugins.get(pluginName);
-        
+
         if (plugin?.dispose) {
           try {
             await plugin.dispose(context);
@@ -85,10 +85,10 @@ export class PluginRegistry {
           }
         }
       }
-      
+
       // Clear initializedPlugins after rollback
       this.initializedPlugins = [];
-      
+
       // Re-throw with context including plugin name
       const errorMessage = error instanceof Error ? error.message : String(error);
       throw new Error(`Plugin "${failingPluginName}" setup failed: ${errorMessage}`);
@@ -100,7 +100,7 @@ export class PluginRegistry {
     for (let i = this.initializedPlugins.length - 1; i >= 0; i--) {
       const pluginName = this.initializedPlugins[i];
       const plugin = this.plugins.get(pluginName);
-      
+
       if (plugin?.dispose) {
         try {
           // Support both sync and async dispose callbacks
