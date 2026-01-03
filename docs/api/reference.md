@@ -1,6 +1,13 @@
-# Skeleton Crew Runtime - API Reference
+# Skeleton Crew Runtime - API Reference v0.2.0
 
-Complete API documentation for Skeleton Crew Runtime including all TypeScript interfaces, classes, methods, and types.
+Complete API documentation for Skeleton Crew Runtime v0.2.0 including all TypeScript interfaces, classes, methods, and types with full generic support.
+
+## What's New in v0.2.0
+
+- **Generic Runtime/Context** - Full TypeScript generic support for type-safe configuration
+- **Sync Config Access** - Direct synchronous access to configuration via `ctx.config`
+- **Plugin Dependencies** - Explicit dependency resolution with validation
+- **Enhanced Logger** - Logger available on context for all plugins
 
 ## Table of Contents
 
@@ -22,6 +29,7 @@ Complete API documentation for Skeleton Crew Runtime including all TypeScript in
 - [Error Classes](#error-classes)
 - [Enums](#enums)
 - [Type Parameters](#type-parameters)
+- [v0.2.0 Migration Examples](#v020-migration-examples)
 
 ---
 
@@ -29,60 +37,94 @@ Complete API documentation for Skeleton Crew Runtime including all TypeScript in
 
 ### Runtime
 
-The main orchestrator that coordinates all subsystems. Handles initialization, shutdown, and lifecycle state tracking.
+The main orchestrator that coordinates all subsystems. Handles initialization, shutdown, and lifecycle state tracking. **v0.2.0 adds full generic support for type-safe configuration.**
 
 #### Constructor
 
 ```typescript
-constructor(options?: RuntimeOptions)
+constructor<TConfig = Record<string, unknown>>(options?: RuntimeOptions<TConfig>)
 ```
 
 Creates a new Runtime instance with optional configuration.
+
+**Type Parameters:**
+- `TConfig`: Configuration object type (defaults to `Record<string, unknown>`)
 
 **Parameters:**
 - `options` (optional): Runtime configuration options
   - `options.logger` (optional): Custom logger implementation (defaults to `ConsoleLogger`)
   - `options.hostContext` (optional): Host application services to inject (defaults to empty object)
+  - `options.config` (optional): **[NEW v0.2.0]** Runtime configuration object
 
 **Example:**
 ```typescript
-import { Runtime, ConsoleLogger } from "skeleton-crew";
+import { Runtime, ConsoleLogger } from "skeleton-crew-runtime";
 
-// Basic usage
-const runtime = new Runtime();
+// v0.2.0: Define your config interface
+interface MyAppConfig {
+  apiUrl: string;
+  apiKey: string;
+  features: {
+    analytics: boolean;
+    debugging: boolean;
+  };
+}
 
-// With custom logger
-const runtime = new Runtime({ logger: new ConsoleLogger() });
+// v0.2.0: Create typed runtime
+const runtime = new Runtime<MyAppConfig>({
+  config: {
+    apiUrl: 'https://api.example.com',
+    apiKey: process.env.API_KEY!,
+    features: {
+      analytics: true,
+      debugging: process.env.NODE_ENV === 'development'
+    }
+  },
+  logger: new ConsoleLogger()
+});
 
-// With host context (for migration scenarios)
-const runtime = new Runtime({
+// Legacy usage still works (backward compatible)
+const legacyRuntime = new Runtime({
   hostContext: {
     db: databaseConnection,
-    logger: applicationLogger,
-    cache: cacheInstance
+    logger: applicationLogger
   }
 });
 ```
 
 #### Methods
 
-##### `registerPlugin(plugin: PluginDefinition): void`
+##### `registerPlugin(plugin: PluginDefinition<TConfig>): void`
 
-Registers a plugin before initialization. Plugins registered this way will have their setup callbacks executed during `initialize()`.
+Registers a plugin before initialization. Plugins registered this way will have their setup callbacks executed during `initialize()`. **v0.2.0 adds dependency resolution.**
 
 **Parameters:**
-- `plugin`: The plugin definition to register
+- `plugin`: The plugin definition to register (now with optional dependencies)
 
 **Throws:**
 - `Error` if runtime is already initialized
+- `Error` if plugin dependencies cannot be resolved
 
 **Example:**
 ```typescript
+// v0.2.0: Plugin with dependencies
 runtime.registerPlugin({
-  name: "my-plugin",
+  name: "data-plugin",
+  version: "1.0.0",
+  dependencies: ['config', 'logger'], // Will initialize after these plugins
+  setup(ctx: RuntimeContext<MyAppConfig>) {
+    // ctx.config is fully typed!
+    const { apiUrl, apiKey } = ctx.config;
+    ctx.logger.info(`Data plugin connecting to ${apiUrl}`);
+  }
+});
+
+// Legacy plugin still works
+runtime.registerPlugin({
+  name: "legacy-plugin",
   version: "1.0.0",
   setup(ctx) {
-    // Plugin setup logic
+    // Works without types
   }
 });
 ```
@@ -125,18 +167,31 @@ Shuts down the runtime following the strict shutdown sequence. Emits `runtime:sh
 await runtime.shutdown();
 ```
 
-##### `getContext(): RuntimeContext`
+##### `getContext(): RuntimeContext<TConfig>`
 
-Returns the RuntimeContext for this runtime instance.
+Returns the RuntimeContext for this runtime instance. **v0.2.0 returns fully typed context.**
 
-**Returns:** The RuntimeContext
+**Returns:** The RuntimeContext with full type information
 
 **Throws:**
 - `Error` if runtime is not initialized
 
 **Example:**
 ```typescript
-const ctx = runtime.getContext();
+const ctx = runtime.getContext(); // Fully typed in v0.2.0
+const config = ctx.config; // Type-safe access to configuration
+```
+
+##### `getConfig(): Readonly<TConfig>`
+
+**[NEW v0.2.0]** Returns the runtime configuration object.
+
+**Returns:** Readonly configuration object
+
+**Example:**
+```typescript
+const config = runtime.getConfig();
+// config is typed as Readonly<MyAppConfig>
 ```
 
 ##### `isInitialized(): boolean`
@@ -1784,6 +1839,478 @@ import { Runtime } from "./runtime.js";
 // Incorrect
 import { Runtime } from "./runtime";
 ```
+
+---
+
+## v0.2.0 Migration Examples
+
+### Complete Migration Example: Browser Extension
+
+This example shows migrating from v0.1.x to v0.2.0 with full type safety and modern patterns.
+
+#### Before (v0.1.x)
+
+```typescript
+// Old way - no types, host context injection
+import { Runtime } from 'skeleton-crew-runtime';
+
+const runtime = new Runtime({
+  hostContext: {
+    config: {
+      host: 'localhost:3000',
+      jobId: 'job-123',
+      workDir: '/tmp/work',
+      token: 'abc123'
+    }
+  }
+});
+
+const downloaderPlugin = {
+  name: 'downloader',
+  version: '1.0.0',
+  setup(ctx) {
+    // ❌ No type safety - requires casting
+    const config = (ctx.host.config as any);
+    const { jobId, workDir } = config;
+    
+    ctx.actions.registerAction({
+      id: 'download:start',
+      handler: async (params) => {
+        // ❌ No type safety on params or return
+        console.log(`Downloading to ${workDir}`);
+        return { success: true };
+      }
+    });
+  }
+};
+
+runtime.registerPlugin(downloaderPlugin);
+await runtime.initialize();
+```
+
+#### After (v0.2.0)
+
+```typescript
+// New way - full type safety, clean architecture
+import { Runtime, PluginDefinition, RuntimeContext } from 'skeleton-crew-runtime';
+
+// ✅ Define your config interface
+interface PreviewConfig {
+  host: string;
+  jobId: string;
+  workDir: string;
+  token?: string;
+}
+
+// ✅ Define typed parameters and results
+interface DownloadParams {
+  url: string;
+  filename: string;
+}
+
+interface DownloadResult {
+  success: boolean;
+  path: string;
+  size: number;
+}
+
+// ✅ Create typed runtime
+const runtime = new Runtime<PreviewConfig>({
+  config: {
+    host: 'localhost:3000',
+    jobId: 'job-123',
+    workDir: '/tmp/work',
+    token: 'abc123'
+  }
+});
+
+// ✅ Fully typed plugin
+const downloaderPlugin: PluginDefinition<PreviewConfig> = {
+  name: 'downloader',
+  version: '1.0.0',
+  dependencies: ['config'], // ✅ Explicit dependencies
+  setup(ctx: RuntimeContext<PreviewConfig>) {
+    // ✅ Full type safety - no casting needed!
+    const { jobId, workDir, token } = ctx.config;
+    ctx.logger.info(`Downloader initialized for job: ${jobId}`);
+    
+    // ✅ Type-safe action registration
+    ctx.actions.registerAction<DownloadParams, DownloadResult>({
+      id: 'download:start',
+      handler: async (params, ctx) => {
+        // ✅ params is typed as DownloadParams
+        // ✅ return must match DownloadResult
+        const { url, filename } = params;
+        const fullPath = `${ctx.config.workDir}/${filename}`;
+        
+        ctx.logger.info(`Downloading ${url} to ${fullPath}`);
+        
+        // Simulate download
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        return {
+          success: true,
+          path: fullPath,
+          size: 1024
+        };
+      },
+      timeout: 30000
+    });
+  }
+};
+
+runtime.registerPlugin(downloaderPlugin);
+await runtime.initialize();
+
+// ✅ Type-safe action execution
+const result = await runtime.getContext().actions.runAction<DownloadParams, DownloadResult>(
+  'download:start',
+  { url: 'https://example.com/file.zip', filename: 'download.zip' }
+);
+
+console.log(`Downloaded ${result.size} bytes to ${result.path}`);
+```
+
+### Plugin Dependencies Example
+
+```typescript
+interface AppConfig {
+  database: {
+    url: string;
+    maxConnections: number;
+  };
+  cache: {
+    ttl: number;
+    maxSize: number;
+  };
+}
+
+const runtime = new Runtime<AppConfig>({
+  config: {
+    database: {
+      url: 'postgresql://localhost:5432/myapp',
+      maxConnections: 10
+    },
+    cache: {
+      ttl: 3600,
+      maxSize: 1000
+    }
+  }
+});
+
+// Base plugin - no dependencies
+const configPlugin: PluginDefinition<AppConfig> = {
+  name: 'config',
+  version: '1.0.0',
+  setup(ctx) {
+    ctx.logger.info('Config plugin initialized');
+    
+    ctx.actions.registerAction({
+      id: 'config:get',
+      handler: () => ctx.config
+    });
+  }
+};
+
+// Database plugin - depends on config
+const databasePlugin: PluginDefinition<AppConfig> = {
+  name: 'database',
+  version: '1.0.0',
+  dependencies: ['config'], // ✅ Will initialize after config
+  setup(ctx) {
+    const { database } = ctx.config;
+    ctx.logger.info(`Connecting to database: ${database.url}`);
+    
+    ctx.actions.registerAction({
+      id: 'db:query',
+      handler: async (sql: string) => {
+        // Database query logic
+        return [];
+      }
+    });
+  }
+};
+
+// Cache plugin - depends on config
+const cachePlugin: PluginDefinition<AppConfig> = {
+  name: 'cache',
+  version: '1.0.0',
+  dependencies: ['config'], // ✅ Will initialize after config
+  setup(ctx) {
+    const { cache } = ctx.config;
+    ctx.logger.info(`Cache initialized with TTL: ${cache.ttl}s`);
+    
+    ctx.actions.registerAction({
+      id: 'cache:get',
+      handler: async (key: string) => {
+        // Cache get logic
+        return null;
+      }
+    });
+  }
+};
+
+// Data service - depends on both database and cache
+const dataServicePlugin: PluginDefinition<AppConfig> = {
+  name: 'data-service',
+  version: '1.0.0',
+  dependencies: ['database', 'cache'], // ✅ Will initialize after both
+  setup(ctx) {
+    ctx.logger.info('Data service initialized');
+    
+    ctx.actions.registerAction({
+      id: 'data:getUser',
+      handler: async (userId: string) => {
+        // Try cache first
+        const cached = await ctx.actions.runAction('cache:get', `user:${userId}`);
+        if (cached) return cached;
+        
+        // Query database
+        const user = await ctx.actions.runAction('db:query', `SELECT * FROM users WHERE id = '${userId}'`);
+        
+        // Cache result
+        await ctx.actions.runAction('cache:set', { key: `user:${userId}`, value: user });
+        
+        return user;
+      }
+    });
+  }
+};
+
+// Register in any order - dependencies will be resolved
+runtime.registerPlugin(dataServicePlugin);  // Depends on database, cache
+runtime.registerPlugin(cachePlugin);        // Depends on config
+runtime.registerPlugin(configPlugin);       // No dependencies
+runtime.registerPlugin(databasePlugin);     // Depends on config
+
+// ✅ Initialization order will be: config → database, cache → data-service
+await runtime.initialize();
+```
+
+### Sync vs Async Access Patterns
+
+```typescript
+interface MyConfig {
+  apiUrl: string;
+  retryCount: number;
+  timeout: number;
+}
+
+const myPlugin: PluginDefinition<MyConfig> = {
+  name: 'api-client',
+  version: '1.0.0',
+  setup(ctx) {
+    // ✅ v0.2.0: Synchronous config access
+    const { apiUrl, retryCount, timeout } = ctx.config;
+    
+    // ✅ No need for async config loading
+    const client = new ApiClient({
+      baseURL: apiUrl,
+      timeout: timeout,
+      retries: retryCount
+    });
+    
+    ctx.actions.registerAction({
+      id: 'api:request',
+      handler: async (params: { endpoint: string; data?: any }) => {
+        // Config is always available synchronously
+        ctx.logger.info(`Making request to ${ctx.config.apiUrl}${params.endpoint}`);
+        return await client.request(params.endpoint, params.data);
+      }
+    });
+    
+    // ✅ Config access in event handlers
+    ctx.events.on('api:error', (error) => {
+      ctx.logger.error(`API error (${ctx.config.apiUrl}):`, error);
+    });
+  }
+};
+```
+
+### Real-World Migration: Express.js Application
+
+```typescript
+// v0.2.0: Clean, typed Express integration
+interface ServerConfig {
+  port: number;
+  cors: {
+    origins: string[];
+    credentials: boolean;
+  };
+  database: {
+    url: string;
+    pool: {
+      min: number;
+      max: number;
+    };
+  };
+  auth: {
+    jwtSecret: string;
+    tokenExpiry: string;
+  };
+}
+
+const runtime = new Runtime<ServerConfig>({
+  config: {
+    port: parseInt(process.env.PORT || '3000'),
+    cors: {
+      origins: process.env.CORS_ORIGINS?.split(',') || ['http://localhost:3000'],
+      credentials: true
+    },
+    database: {
+      url: process.env.DATABASE_URL!,
+      pool: {
+        min: 2,
+        max: 10
+      }
+    },
+    auth: {
+      jwtSecret: process.env.JWT_SECRET!,
+      tokenExpiry: '24h'
+    }
+  }
+});
+
+// Database plugin
+const databasePlugin: PluginDefinition<ServerConfig> = {
+  name: 'database',
+  version: '1.0.0',
+  setup(ctx) {
+    const { database } = ctx.config;
+    
+    // Initialize database with typed config
+    const pool = new Pool({
+      connectionString: database.url,
+      min: database.pool.min,
+      max: database.pool.max
+    });
+    
+    ctx.actions.registerAction({
+      id: 'db:query',
+      handler: async (sql: string, params?: any[]) => {
+        const client = await pool.connect();
+        try {
+          const result = await client.query(sql, params);
+          return result.rows;
+        } finally {
+          client.release();
+        }
+      }
+    });
+  }
+};
+
+// Auth plugin
+const authPlugin: PluginDefinition<ServerConfig> = {
+  name: 'auth',
+  version: '1.0.0',
+  dependencies: ['database'],
+  setup(ctx) {
+    const { auth } = ctx.config;
+    
+    ctx.actions.registerAction({
+      id: 'auth:login',
+      handler: async (credentials: { email: string; password: string }) => {
+        const users = await ctx.actions.runAction('db:query', 
+          'SELECT * FROM users WHERE email = $1', [credentials.email]);
+        
+        if (users.length === 0) {
+          throw new Error('User not found');
+        }
+        
+        // Verify password, generate JWT with typed config
+        const token = jwt.sign({ userId: users[0].id }, auth.jwtSecret, {
+          expiresIn: auth.tokenExpiry
+        });
+        
+        return { token, user: users[0] };
+      }
+    });
+  }
+};
+
+// API routes plugin
+const apiPlugin: PluginDefinition<ServerConfig> = {
+  name: 'api',
+  version: '1.0.0',
+  dependencies: ['database', 'auth'],
+  setup(ctx) {
+    const { cors } = ctx.config;
+    
+    // Configure CORS with typed config
+    const corsOptions = {
+      origin: cors.origins,
+      credentials: cors.credentials
+    };
+    
+    ctx.actions.registerAction({
+      id: 'api:setup',
+      handler: (app: Express) => {
+        app.use(cors(corsOptions));
+        
+        app.post('/api/login', async (req, res) => {
+          try {
+            const result = await ctx.actions.runAction('auth:login', req.body);
+            res.json(result);
+          } catch (error) {
+            res.status(401).json({ error: error.message });
+          }
+        });
+        
+        app.get('/api/users', async (req, res) => {
+          const users = await ctx.actions.runAction('db:query', 'SELECT * FROM users');
+          res.json(users);
+        });
+      }
+    });
+  }
+};
+
+// Initialize and start server
+runtime.registerPlugin(databasePlugin);
+runtime.registerPlugin(authPlugin);
+runtime.registerPlugin(apiPlugin);
+
+await runtime.initialize();
+
+const app = express();
+app.use(express.json());
+
+// Setup API routes
+await runtime.getContext().actions.runAction('api:setup', app);
+
+// Start server with typed config
+const { port } = runtime.getConfig();
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+});
+```
+
+### Migration Benefits Summary
+
+**v0.1.x → v0.2.0 Benefits:**
+
+1. **Type Safety**
+   - ❌ Before: `(ctx.host.config as any).apiUrl`
+   - ✅ After: `ctx.config.apiUrl` (fully typed)
+
+2. **Developer Experience**
+   - ❌ Before: No IDE autocomplete, runtime errors
+   - ✅ After: Full IntelliSense, compile-time errors
+
+3. **Plugin Dependencies**
+   - ❌ Before: Manual initialization order management
+   - ✅ After: Automatic dependency resolution
+
+4. **Configuration Access**
+   - ❌ Before: Async host context access
+   - ✅ After: Synchronous typed config access
+
+5. **Error Prevention**
+   - ❌ Before: Runtime type errors, missing properties
+   - ✅ After: Compile-time validation, required properties
+
+**Migration Effort:** Minimal - mostly adding type annotations and moving from `hostContext` to `config`.
 
 ---
 

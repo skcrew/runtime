@@ -1,12 +1,38 @@
-# Skeleton Crew Runtime
+# Skeleton Crew Runtime v0.2.0
 
 **A minimal plugin runtime for building modular JavaScript applications.**
 
 Stop wiring up infrastructure. Start building features.
 
 ```bash
-npm install skeleton-crew-runtime
+npm install skeleton-crew-runtime@^0.2.0
 ```
+
+## What's New in v0.2.0
+
+🎯 **Generic Runtime/Context** - Full TypeScript generic support for type-safe configuration  
+⚡ **Sync Config Access** - Direct synchronous access to configuration via `ctx.config`  
+🔗 **Plugin Dependencies** - Explicit dependency resolution with validation  
+📝 **Enhanced Logger** - Logger available on context for all plugins  
+🔄 **100% Backward Compatible** - All v0.1.x code continues to work
+
+### Quick Migration Example
+
+```typescript
+// v0.1.x
+const runtime = new Runtime({
+  hostContext: { config: myConfig }
+});
+
+// v0.2.0 - Fully typed!
+interface MyConfig { apiUrl: string; }
+const runtime = new Runtime<MyConfig>({
+  config: { apiUrl: 'https://api.example.com' }
+});
+```
+
+**[→ Complete Migration Guide](docs/guides/v0.1-to-v0.2-migration.md)**
+
 ---
 ## Documentation
 
@@ -16,7 +42,11 @@ npm install skeleton-crew-runtime
 - **[Core Concepts](docs/getting-started/README.md)** - Understand the fundamentals
 - **[Your First Plugin](docs/getting-started/your-first-plugin.md)** - Build your first feature
 
-### Guides & Examples
+### v0.2.0 Migration & Guides
+- **[v0.1.x → v0.2.0 Migration](docs/guides/v0.1-to-v0.2-migration.md)** - Complete migration walkthrough
+- **[Plugin Dependencies](docs/guides/plugin-dependencies.md)** - Dependency patterns and best practices
+- **[Sync vs Async Patterns](docs/guides/sync-async-patterns.md)** - Configuration and execution patterns
+- **[Real-World Examples](docs/guides/real-world-examples.md)** - Production-ready implementations
 - **[Migration Guide](docs/guides/migration-guide.md)** - Integrate with existing apps
 - **[Examples Guide](docs/guides/EXAMPLES_GUIDE.md)** - Learn through code examples
 
@@ -62,54 +92,99 @@ You're building something modular and you might know these challenges:
 Here's a complete plugin that adds a feature to your app:
 
 ```typescript
-import { Runtime, PluginDefinition } from 'skeleton-crew-runtime';
+import { Runtime, PluginDefinition, RuntimeContext } from 'skeleton-crew-runtime';
 
-// 1. Create runtime
-const runtime = new Runtime();
+// v0.2.0: Define your config interface
+interface AppConfig {
+  notifications: {
+    apiKey: string;
+    defaultTimeout: number;
+  };
+  features: {
+    pushNotifications: boolean;
+  };
+}
+
+// 1. Create typed runtime
+const runtime = new Runtime<AppConfig>({
+  config: {
+    notifications: {
+      apiKey: process.env.NOTIFICATION_API_KEY!,
+      defaultTimeout: 5000
+    },
+    features: {
+      pushNotifications: true
+    }
+  }
+});
+
 await runtime.initialize();
 const ctx = runtime.getContext();
 
 // 2. Write a plugin (this is a complete feature)
-const notificationsPlugin: PluginDefinition = {
+const notificationsPlugin: PluginDefinition<AppConfig> = {
   name: 'notifications',
   version: '1.0.0',
+  dependencies: [], // v0.2.0: Explicit dependencies
   
-  setup(ctx) {
-    // Register business logic
-    ctx.actions.registerAction({
+  setup(ctx: RuntimeContext<AppConfig>) {
+    // ✅ Fully typed config access
+    const { notifications, features } = ctx.config;
+    
+    if (!features.pushNotifications) {
+      ctx.logger.info('Push notifications disabled');
+      return;
+    }
+    
+    // Register business logic with type safety
+    ctx.actions.registerAction<
+      { userId: string; message: string },
+      { success: boolean; messageId: string }
+    >({
       id: 'notifications:send',
       handler: async ({ userId, message }, ctx) => {
+        // ✅ Typed config access in handlers
+        const { apiKey, defaultTimeout } = ctx.config.notifications;
+        
         // Your logic here
-        await sendPushNotification(userId, message);
+        const messageId = await sendPushNotification(userId, message, {
+          apiKey,
+          timeout: defaultTimeout
+        });
         
         // Let other plugins know
-        ctx.events.emit('notification:sent', { userId });
+        ctx.events.emit('notification:sent', { userId, messageId });
         
-        return { success: true };
-      }
+        return { success: true, messageId };
+      },
+      timeout: notifications.defaultTimeout
     });
     
     // React to other plugins
-    ctx.events.on('user:registered', async (user) => {
+    ctx.events.on('user:registered', async (user: any) => {
       await ctx.actions.runAction('notifications:send', {
         userId: user.id,
         message: 'Welcome!'
       });
     });
+    
+    ctx.logger.info('Notifications plugin initialized');
   }
 };
 
 // 3. Register and use
 ctx.plugins.registerPlugin(notificationsPlugin);
 
-// anywhere in your app
-await ctx.actions.runAction('notifications:send', {
-  userId: 123,
+// anywhere in your app - fully typed!
+const result = await ctx.actions.runAction('notifications:send', {
+  userId: '123',
   message: 'Your order shipped!'
 });
+
+console.log(`Message sent: ${result.messageId}`);
 ```
 
-**That's it.** The plugin is isolated, testable, and can be removed without breaking anything.
+**That's it.** The plugin is isolated, testable, fully typed, and can be removed without breaking anything.
 
 ## Core concepts (5 minutes)
 
@@ -120,15 +195,29 @@ A plugin is just an object with a name and a setup function:
 ```typescript
 import type { PluginDefinition, RuntimeContext } from 'skeleton-crew-runtime';
 
-export const myPlugin: PluginDefinition = {
+// v0.2.0: Define your config type
+interface MyAppConfig {
+  apiUrl: string;
+  features: { analytics: boolean };
+}
+
+export const myPlugin: PluginDefinition<MyAppConfig> = {
   name: 'my-plugin',
   version: '1.0.0',
+  dependencies: ['config'], // v0.2.0: Explicit dependencies
   
-  setup(ctx: RuntimeContext) {
+  setup(ctx: RuntimeContext<MyAppConfig>) {
+    // ✅ Fully typed config access
+    const { apiUrl, features } = ctx.config;
+    
+    if (features.analytics) {
+      ctx.logger.info(`Plugin initialized for ${apiUrl}`);
+    }
+    
     // Register your feature here
   },
   
-  dispose(ctx: RuntimeContext) {
+  dispose(ctx: RuntimeContext<MyAppConfig>) {
     // Optional: cleanup resources when plugin is removed
     // Use this for: closing connections, clearing timers, releasing memory
     // Event listeners auto-cleanup, so you usually don't need this
@@ -141,19 +230,43 @@ export const myPlugin: PluginDefinition = {
 Actions are named functions that do work:
 
 ```typescript
+// v0.2.0: Type-safe action registration
+interface CreateOrderParams {
+  customerId: string;
+  items: Array<{ id: string; quantity: number }>;
+}
+
+interface Order {
+  id: string;
+  customerId: string;
+  total: number;
+  status: 'pending' | 'confirmed';
+}
+
 // Register an action
-ctx.actions.registerAction({
+ctx.actions.registerAction<CreateOrderParams, Order>({
   id: 'orders:create',
   handler: async (orderData, ctx) => {
-    const { db } = ctx.host;
-    const order = await db.insert('orders', orderData);
+    // ✅ Typed config access
+    const { apiUrl } = ctx.config;
+    
+    // ✅ Typed parameters
+    const { customerId, items } = orderData;
+    
+    const order = await createOrder(customerId, items);
     ctx.events.emit('order:created', order);
-    return order;
-  }
+    
+    ctx.logger.info(`Order created: ${order.id}`);
+    return order; // ✅ Typed return value
+  },
+  timeout: 10000 // Optional timeout
 });
 
-// Call from anywhere
-const order = await ctx.actions.runAction('orders:create', data);
+// Call from anywhere - fully typed!
+const order = await ctx.actions.runAction<CreateOrderParams, Order>(
+  'orders:create',
+  { customerId: '123', items: [{ id: 'item1', quantity: 2 }] }
+);
 ```
 
 ### 3. Events: Decouple Features
@@ -168,17 +281,72 @@ ctx.events.emit('order:created', order);
 ctx.events.on('order:created', (order) => {
   sendConfirmationEmail(order);
 });
+
+// v0.2.0: Async event handling
+await ctx.events.emitAsync('order:created', order); // Wait for all handlers
 ```
 
-### 4. Host Context: Bridge to Existing Code
+### 4. Configuration: Type-Safe Access (v0.2.0)
+
+Direct synchronous access to typed configuration:
+
+```typescript
+import { Runtime } from 'skeleton-crew-runtime';
+
+interface AppConfig {
+  database: { url: string; maxConnections: number };
+  api: { baseUrl: string; timeout: number };
+  features: { caching: boolean; analytics: boolean };
+}
+
+const runtime = new Runtime<AppConfig>({
+  config: {
+    database: {
+      url: process.env.DATABASE_URL!,
+      maxConnections: 10
+    },
+    api: {
+      baseUrl: 'https://api.example.com',
+      timeout: 5000
+    },
+    features: {
+      caching: true,
+      analytics: process.env.NODE_ENV === 'production'
+    }
+  }
+});
+
+// In plugins: direct typed access
+setup(ctx: RuntimeContext<AppConfig>) {
+  // ✅ Fully typed, synchronous access
+  const { database, api, features } = ctx.config;
+  
+  if (features.caching) {
+    initializeCache();
+  }
+  
+  // ✅ Available in action handlers
+  ctx.actions.registerAction({
+    id: 'api:request',
+    handler: async (endpoint: string) => {
+      const { baseUrl, timeout } = ctx.config.api;
+      return await fetch(`${baseUrl}${endpoint}`, { timeout });
+    }
+  });
+}
+```
+
+### 5. Host Context: Bridge to Existing Code
 
 Inject your existing services so plugins can use them:
 
 ```typescript
 import { Runtime } from 'skeleton-crew-runtime';
 
-const runtime = new Runtime({
+const runtime = new Runtime<AppConfig>({
+  config: myTypedConfig,
   hostContext: {
+    // Legacy services
     db: yourDatabase,
     cache: redisClient,
     logger: yourLogger
@@ -188,11 +356,11 @@ const runtime = new Runtime({
 await runtime.initialize();
 const ctx = runtime.getContext();
 
-// Plugins access via ctx.host
+// Plugins access via ctx.host (for legacy integration)
 const { db, logger } = ctx.host;
 ```
 
-### 5. Screens (Optional): UI Definitions
+### 6. Screens (Optional): UI Definitions
 
 Define screens that any UI framework can render:
 

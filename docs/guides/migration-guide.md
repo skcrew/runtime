@@ -1,9 +1,11 @@
-# Migration Guide: Adopting Skeleton Crew Runtime
+# Migration Guide: Adopting Skeleton Crew Runtime v0.2.0
 
-This guide helps you migrate existing applications to Skeleton Crew Runtime without requiring a complete rewrite.
+This guide helps you migrate existing applications to Skeleton Crew Runtime v0.2.0 without requiring a complete rewrite. **v0.2.0 introduces full TypeScript generic support, sync config access, and plugin dependencies while maintaining 100% backward compatibility.**
 
 ## Table of Contents
 
+- [What's New in v0.2.0](#whats-new-in-v020)
+- [v0.2.0 Migration Path](#v020-migration-path)
 - [Overview](#overview)
 - [When to Migrate](#when-to-migrate)
 - [Migration Strategies](#migration-strategies)
@@ -11,6 +13,122 @@ This guide helps you migrate existing applications to Skeleton Crew Runtime with
 - [Testing During Migration](#testing-during-migration)
 - [Common Pitfalls](#common-pitfalls)
 - [FAQ](#faq)
+
+## What's New in v0.2.0
+
+### 🎯 Generic Runtime/Context
+
+Full TypeScript generic support for type-safe configuration access:
+
+```typescript
+// v0.1.x
+const runtime = new Runtime({
+  hostContext: { config: myConfig }
+});
+
+// v0.2.0
+interface MyConfig { apiUrl: string; }
+const runtime = new Runtime<MyConfig>({
+  config: { apiUrl: 'https://api.example.com' }
+});
+```
+
+### ⚡ Sync Config Access
+
+Direct synchronous access to configuration:
+
+```typescript
+// v0.1.x - Async host context access
+const config = (ctx.host.config as any);
+
+// v0.2.0 - Direct sync access
+const { apiUrl } = ctx.config; // Fully typed!
+```
+
+### 🔗 Plugin Dependencies
+
+Explicit dependency resolution with validation:
+
+```typescript
+// v0.2.0
+const myPlugin: PluginDefinition<MyConfig> = {
+  name: 'my-plugin',
+  version: '1.0.0',
+  dependencies: ['config', 'database'], // Explicit dependencies
+  setup(ctx) {
+    // Will only run after config and database plugins
+  }
+};
+```
+
+### 📝 Enhanced Logger
+
+Logger available on context for all plugins:
+
+```typescript
+// v0.2.0
+setup(ctx: RuntimeContext<MyConfig>) {
+  ctx.logger.info('Plugin initialized'); // Available everywhere
+}
+```
+
+## v0.2.0 Migration Path
+
+### Quick Migration (Recommended)
+
+**Time:** 1-2 hours for most applications
+
+1. **Update package**: `npm install skeleton-crew-runtime@^0.2.0`
+2. **Define config interface**: Create TypeScript interface for your config
+3. **Update Runtime creation**: Move from `hostContext` to `config`
+4. **Update plugin definitions**: Add generic types and dependencies
+5. **Update config access**: Replace `ctx.host.config` with `ctx.config`
+
+### Example Migration
+
+**Before (v0.1.x):**
+```typescript
+const runtime = new Runtime({
+  hostContext: {
+    config: { apiUrl: 'https://api.example.com', apiKey: 'key123' }
+  }
+});
+
+const myPlugin = {
+  name: 'api',
+  version: '1.0.0',
+  setup(ctx) {
+    const config = (ctx.host.config as any);
+    const { apiUrl, apiKey } = config;
+  }
+};
+```
+
+**After (v0.2.0):**
+```typescript
+interface ApiConfig {
+  apiUrl: string;
+  apiKey: string;
+}
+
+const runtime = new Runtime<ApiConfig>({
+  config: { apiUrl: 'https://api.example.com', apiKey: 'key123' }
+});
+
+const myPlugin: PluginDefinition<ApiConfig> = {
+  name: 'api',
+  version: '1.0.0',
+  setup(ctx: RuntimeContext<ApiConfig>) {
+    const { apiUrl, apiKey } = ctx.config; // Fully typed!
+  }
+};
+```
+
+**Benefits:**
+- ✅ Full type safety
+- ✅ Better IDE support
+- ✅ Compile-time error detection
+- ✅ Cleaner, more readable code
 
 ## Overview
 
@@ -984,13 +1102,64 @@ describe('Analytics Plugin', () => {
 
 ✅ **Solution**: Use events and actions for cross-plugin communication
 
-### 4. Forgetting to Clean Up
+### 4. **CRITICAL: Stale Config Closures**
+
+❌ **Problem**: Capturing config reference during plugin setup
+
+```typescript
+// ❌ DANGEROUS - Creates stale closure
+const myPlugin: PluginDefinition<AppConfig> = {
+  name: 'my-plugin',
+  version: '1.0.0',
+  setup(ctx) {
+    const config = ctx.config; // ❌ Captures current reference
+    
+    ctx.actions.registerAction({
+      id: 'my:action',
+      handler: async () => {
+        // ❌ Uses stale config - won't reflect runtime updates
+        return await fetch(config.apiUrl);
+      }
+    });
+  }
+};
+```
+
+✅ **Solution**: Always access config dynamically
+
+```typescript
+// ✅ SAFE - Always gets current config
+const myPlugin: PluginDefinition<AppConfig> = {
+  name: 'my-plugin',
+  version: '1.0.0',
+  setup(ctx) {
+    ctx.actions.registerAction({
+      id: 'my:action',
+      handler: async (params, ctx) => {
+        // ✅ Always gets current config
+        const { apiUrl } = ctx.config;
+        return await fetch(apiUrl);
+      }
+    });
+  }
+};
+```
+
+**Why this happens:**
+- `setup()` runs once during initialization
+- If you assign `const config = ctx.config`, you capture the initial config object
+- Later config updates create a new object, but your variable still references the old one
+- `ctx.config` is a getter that always returns the current config
+
+**Rule**: Never assign `ctx.config` to a variable. Always access it directly.
+
+### 5. Forgetting to Clean Up
 
 ❌ **Problem**: Leaving duplicate code paths (legacy + new)
 
 ✅ **Solution**: Remove legacy code once feature is fully migrated and tested
 
-### 5. No Rollback Plan
+### 6. No Rollback Plan
 
 ❌ **Problem**: Can't revert if migration causes issues
 
