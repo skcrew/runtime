@@ -14,18 +14,19 @@ import { createPerformanceMonitor, type PerformanceMonitor } from './performance
  * 
  * Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 2.1, 2.2, 2.3, 2.4, 2.5, 2.6, 3.1, 3.5, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6, 9.7, 9.9, 15.1, 15.3, 15.5, 16.1, 16.2, 16.3, 16.4, 16.5
  */
-export class Runtime {
-  private plugins!: PluginRegistry;
+export class Runtime<TConfig = Record<string, unknown>> {
+  private plugins!: PluginRegistry<TConfig>;
   private screens!: ScreenRegistry;
-  private actions!: ActionEngine;
+  private actions!: ActionEngine<TConfig>;
   private events!: EventBus;
-  private ui!: UIBridge;
-  private context!: RuntimeContext;
+  private ui!: UIBridge<TConfig>;
+  private context!: RuntimeContext<TConfig>;
   private initialized: boolean = false;
-  private pendingPlugins: PluginDefinition[] = [];
+  private pendingPlugins: PluginDefinition<TConfig>[] = [];
   public readonly logger: Logger;
   private state: RuntimeState = RuntimeState.Uninitialized;
   private hostContext: Record<string, unknown>;
+  private config: TConfig; // [NEW] Stored config
   private performanceMonitor: PerformanceMonitor;
 
   /**
@@ -37,9 +38,15 @@ export class Runtime {
    * 
    * Requirements: 1.1, 1.5, 7.1, 7.2, 7.3, 7.4, 7.5, 7.6
    */
-  constructor(options?: RuntimeOptions) {
+  constructor(options?: RuntimeOptions<TConfig>) {
     this.logger = options?.logger ?? new ConsoleLogger();
     this.hostContext = options?.hostContext ?? {};
+    this.hostContext = options?.hostContext ?? {};
+    // Ensure config is always an object and frozen initially
+    this.config = options?.config ? { ...options.config } as TConfig : {} as TConfig;
+    if (this.config && typeof this.config === 'object') {
+      Object.freeze(this.config);
+    }
     this.performanceMonitor = createPerformanceMonitor(options?.enablePerformanceMonitoring ?? false);
     this.validateHostContext(this.hostContext);
   }
@@ -86,7 +93,7 @@ export class Runtime {
    * @param plugin - The plugin definition to register
    * @throws Error if runtime is already initialized
    */
-  registerPlugin(plugin: PluginDefinition): void {
+  registerPlugin(plugin: PluginDefinition<TConfig>): void {
     if (this.initialized) {
       throw new Error('Cannot register plugins after initialization. Use context.plugins.registerPlugin() instead.');
     }
@@ -118,7 +125,7 @@ export class Runtime {
       // Strict initialization sequence (Requirements 2.1, 2.2, 2.3, 2.4)
 
       // 1. Create PluginRegistry (Requirement 2.1)
-      this.plugins = new PluginRegistry(this.logger);
+      this.plugins = new PluginRegistry<TConfig>(this.logger);
 
       // Register pending plugins
       for (const plugin of this.pendingPlugins) {
@@ -130,16 +137,16 @@ export class Runtime {
       this.screens = new ScreenRegistry(this.logger);
 
       // 3. Create ActionEngine (Requirement 2.3)
-      this.actions = new ActionEngine(this.logger);
+      this.actions = new ActionEngine<TConfig>(this.logger);
 
       // 4. Create EventBus (Requirement 2.4)
       this.events = new EventBus(this.logger);
 
       // 5. Create UIBridge
-      this.ui = new UIBridge(this.logger);
+      this.ui = new UIBridge<TConfig>(this.logger);
 
       // 6. Create RuntimeContext after all subsystems (Requirements 1.2, 2.4, 9.7)
-      this.context = new RuntimeContextImpl(
+      this.context = new RuntimeContextImpl<TConfig>(
         this.screens,
         this.actions,
         this.plugins,
@@ -231,7 +238,7 @@ export class Runtime {
    * 
    * Requirement: 9.1
    */
-  getContext(): RuntimeContext {
+  getContext(): RuntimeContext<TConfig> {
     if (!this.initialized) {
       throw new Error('Runtime not initialized');
     }
@@ -270,7 +277,7 @@ export class Runtime {
    * 
    * Requirements: 10.3, 10.9
    */
-  setUIProvider(provider: UIProvider): void {
+  setUIProvider(provider: UIProvider<TConfig>): void {
     this.ui.setProvider(provider);
   }
 
@@ -282,7 +289,7 @@ export class Runtime {
    * 
    * Requirement: 10.4
    */
-  getUIProvider(): UIProvider | null {
+  getUIProvider(): UIProvider<TConfig> | null {
     return this.ui.getProvider();
   }
 
@@ -307,5 +314,26 @@ export class Runtime {
 
     // Delegate to UIBridge to render the screen
     return this.ui.renderScreen(screen);
+  }
+  /**
+   * Returns the current runtime configuration.
+   * @returns Readonly config object
+   */
+  getConfig(): Readonly<TConfig> {
+    return this.config;
+  }
+
+  /**
+   * Updates the runtime configuration.
+   * Merges the new config with the existing one and freezes it.
+   * @param config - Partial config to update
+   */
+  updateConfig(config: Partial<TConfig>): void {
+    if (!this.config || typeof this.config !== 'object') {
+      this.config = config as TConfig;
+    } else {
+      this.config = { ...this.config, ...config };
+    }
+    Object.freeze(this.config);
   }
 }

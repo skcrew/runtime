@@ -43,12 +43,12 @@ function deepFreeze<T>(obj: T): Readonly<T> {
  * 
  * Requirements: 1.2, 9.1, 9.2, 9.3, 9.4, 9.5, 9.6
  */
-export class RuntimeContextImpl implements RuntimeContext {
+export class RuntimeContextImpl<TConfig = Record<string, unknown>> implements RuntimeContext<TConfig> {
   private screenRegistry: ScreenRegistry;
-  private actionEngine: ActionEngine;
-  private pluginRegistry: PluginRegistry;
+  private actionEngine: ActionEngine<TConfig>;
+  private pluginRegistry: PluginRegistry<TConfig>;
   private eventBus: EventBus;
-  private runtime: Runtime;
+  private runtime: Runtime<TConfig>;
   private frozenHostContext: Readonly<Record<string, unknown>>;
   private introspectionAPI: IntrospectionAPI;
   private loggerInstance: Logger;
@@ -61,10 +61,10 @@ export class RuntimeContextImpl implements RuntimeContext {
 
   constructor(
     screenRegistry: ScreenRegistry,
-    actionEngine: ActionEngine,
-    pluginRegistry: PluginRegistry,
+    actionEngine: ActionEngine<TConfig>,
+    pluginRegistry: PluginRegistry<TConfig>,
     eventBus: EventBus,
-    runtime: Runtime,
+    runtime: Runtime<TConfig>,
     hostContext: Record<string, unknown>,
     logger: Logger
   ) {
@@ -121,7 +121,7 @@ export class RuntimeContextImpl implements RuntimeContext {
 
   private createActionsAPI() {
     return {
-      registerAction: <P = unknown, R = unknown>(action: ActionDefinition<P, R>): (() => void) => {
+      registerAction: <P = unknown, R = unknown>(action: ActionDefinition<P, R, TConfig>): (() => void) => {
         return this.actionEngine.registerAction(action);
       },
       runAction: <P = unknown, R = unknown>(id: string, params?: P): Promise<R> => {
@@ -140,13 +140,13 @@ export class RuntimeContextImpl implements RuntimeContext {
 
   private createPluginsAPI() {
     return {
-      registerPlugin: (plugin: PluginDefinition): void => {
+      registerPlugin: (plugin: PluginDefinition<TConfig>): void => {
         this.pluginRegistry.registerPlugin(plugin);
       },
-      getPlugin: (name: string): PluginDefinition | null => {
+      getPlugin: (name: string): PluginDefinition<TConfig> | null => {
         return this.pluginRegistry.getPlugin(name);
       },
-      getAllPlugins: (): PluginDefinition[] => {
+      getAllPlugins: (): PluginDefinition<TConfig>[] => {
         return this.pluginRegistry.getAllPlugins();
       },
       getInitializedPlugins: (): string[] => {
@@ -181,7 +181,7 @@ export class RuntimeContextImpl implements RuntimeContext {
    * Returns the Runtime instance
    * Requirement: 9.6
    */
-  getRuntime(): Runtime {
+  getRuntime(): Runtime<TConfig> {
     return this.runtime;
   }
 
@@ -202,6 +202,13 @@ export class RuntimeContextImpl implements RuntimeContext {
    */
   get host(): Readonly<Record<string, unknown>> {
     return this.frozenHostContext;
+  }
+
+  /**
+   * Synchronous access to runtime configuration.
+   */
+  get config(): Readonly<TConfig> {
+    return this.runtime.getConfig();
   }
 
   /**

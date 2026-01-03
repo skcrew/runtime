@@ -108,11 +108,12 @@ export enum RuntimeState {
   Shutdown = 'shutdown'
 }
 
-export interface PluginDefinition {
+export interface PluginDefinition<TConfig = Record<string, unknown>> {
   name: string;
   version: string;
-  setup: (context: RuntimeContext) => void | Promise<void>;
-  dispose?: (context: RuntimeContext) => void | Promise<void>;
+  dependencies?: string[];
+  setup: (context: RuntimeContext<TConfig>) => void | Promise<void>;
+  dispose?: (context: RuntimeContext<TConfig>) => void | Promise<void>;
 }
 
 export interface ScreenDefinition {
@@ -127,9 +128,9 @@ export interface ScreenDefinition {
  * @template R - Return type (defaults to unknown for backward compatibility)
  * @see Requirements 6.1, 6.2, 6.3, 6.4, 6.5, 11.1, 11.2, 11.3, 11.4, 11.5
  */
-export interface ActionDefinition<P = unknown, R = unknown> {
+export interface ActionDefinition<P = unknown, R = unknown, TConfig = Record<string, unknown>> {
   id: string;
-  handler: (params: P, context: RuntimeContext) => Promise<R> | R;
+  handler: (params: P, context: RuntimeContext<TConfig>) => Promise<R> | R;
   timeout?: number; // Optional timeout in milliseconds
 }
 
@@ -137,8 +138,8 @@ export interface ActionDefinition<P = unknown, R = unknown> {
  * UIProvider interface with enhanced lifecycle methods
  * @see Requirements 9.1, 9.2, 9.3, 9.4, 9.5
  */
-export interface UIProvider {
-  mount(target: unknown, context: RuntimeContext): void | Promise<void>;
+export interface UIProvider<TConfig = Record<string, unknown>> {
+  mount(target: unknown, context: RuntimeContext<TConfig>): void | Promise<void>;
   renderScreen(screen: ScreenDefinition): unknown | Promise<unknown>;
   unmount?(): void | Promise<void>;
 }
@@ -147,20 +148,20 @@ export interface UIProvider {
  * RuntimeContext provides a safe API facade for subsystems.
  * @see Requirements 4.1, 4.2, 4.3, 4.4, 4.5, 10.1, 10.2, 10.3, 10.4, 10.5, 12.1, 12.2, 12.3, 12.4, 12.5, 13.1, 13.2, 13.3, 13.4, 13.5
  */
-export interface RuntimeContext {
+export interface RuntimeContext<TConfig = Record<string, unknown>> {
   screens: {
     registerScreen(screen: ScreenDefinition): () => void;
     getScreen(id: string): ScreenDefinition | null;
     getAllScreens(): ScreenDefinition[];
   };
   actions: {
-    registerAction<P = unknown, R = unknown>(action: ActionDefinition<P, R>): () => void;
+    registerAction<P = unknown, R = unknown>(action: ActionDefinition<P, R, TConfig>): () => void;
     runAction<P = unknown, R = unknown>(id: string, params?: P): Promise<R>;
   };
   plugins: {
-    registerPlugin(plugin: PluginDefinition): void;
-    getPlugin(name: string): PluginDefinition | null;
-    getAllPlugins(): PluginDefinition[];
+    registerPlugin(plugin: PluginDefinition<TConfig>): void;
+    getPlugin(name: string): PluginDefinition<TConfig> | null;
+    getAllPlugins(): PluginDefinition<TConfig>[];
     getInitializedPlugins(): string[];
   };
   events: {
@@ -168,12 +169,18 @@ export interface RuntimeContext {
     emitAsync(event: string, data?: unknown): Promise<void>;
     on(event: string, handler: (data: unknown) => void): () => void;
   };
-  getRuntime(): Runtime;
+  getRuntime(): Runtime<TConfig>;
 
   /**
    * Logger instance for plugins to use
    */
   readonly logger: Logger;
+
+  /**
+   * Synchronous access to runtime configuration.
+   * @see SCR v0.2.0 Requirement
+   */
+  readonly config: Readonly<TConfig>;
 
   // Migration Support
   /**
@@ -189,10 +196,12 @@ export interface RuntimeContext {
   readonly introspect: IntrospectionAPI;
 }
 
-export interface Runtime {
+export interface Runtime<TConfig = Record<string, unknown>> {
   initialize(): Promise<void>;
   shutdown(): Promise<void>;
-  getContext(): RuntimeContext;
+  getContext(): RuntimeContext<TConfig>;
+  getConfig(): Readonly<TConfig>;
+  updateConfig(config: Partial<TConfig>): void;
 }
 
 // Migration Support Types
@@ -201,9 +210,10 @@ export interface Runtime {
  * Runtime initialization options
  * @see Requirements 1.1, 9.1
  */
-export interface RuntimeOptions {
+export interface RuntimeOptions<TConfig = Record<string, unknown>> {
   logger?: Logger;
   hostContext?: Record<string, unknown>;
+  config?: TConfig; // [NEW] Sync Config
   enablePerformanceMonitoring?: boolean;
 }
 

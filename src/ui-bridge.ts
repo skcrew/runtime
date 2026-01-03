@@ -5,8 +5,8 @@ import { UIProvider, ScreenDefinition, Logger, ValidationError, DuplicateRegistr
  * Validates provider implements required methods and rejects duplicate registration.
  * @see Requirements 9.1, 9.2, 9.3, 9.4, 9.5, 14.1, 14.2, 14.3, 14.4, 14.5, 14.6, 15.1, 15.2, 15.3, 15.4, 15.5
  */
-export class UIBridge {
-  private provider: UIProvider | null = null;
+export class UIBridge<TConfig = Record<string, unknown>> {
+  private provider: UIProvider<TConfig> | null = null;
   private logger: Logger;
 
   constructor(logger: Logger) {
@@ -19,7 +19,7 @@ export class UIBridge {
    * @throws DuplicateRegistrationError if provider is already registered
    * @see Requirements 9.1, 9.2, 9.4, 14.1, 14.2, 14.3, 14.4, 14.5, 14.6, 15.1, 15.2, 15.3, 15.4, 15.5
    */
-  setProvider(provider: UIProvider): void {
+  setProvider(provider: UIProvider<TConfig>): void {
     // Reject duplicate provider registration
     if (this.provider !== null) {
       throw new DuplicateRegistrationError('UIProvider', 'default');
@@ -41,7 +41,7 @@ export class UIBridge {
    * Get the registered UI provider.
    * @returns The registered UIProvider or null if none registered
    */
-  getProvider(): UIProvider | null {
+  getProvider(): UIProvider<TConfig> | null {
     return this.provider;
   }
 

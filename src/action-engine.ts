@@ -7,9 +7,9 @@ import { ValidationError, DuplicateRegistrationError, ActionTimeoutError, Action
  * 
  * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 4.1, 4.2, 4.3, 4.4, 4.5, 6.1, 6.2, 6.3, 6.4, 6.5, 6.6, 6.7, 6.8, 10.1, 10.2, 10.3, 10.4, 10.5, 11.1, 11.2, 11.3, 11.4, 11.5, 13.2, 13.5, 14.1, 14.2, 14.3, 14.4, 14.5, 14.6, 15.1, 15.2, 15.3, 15.4, 15.5, 16.2, 16.4, 19.1, 19.2, 19.3, 19.4, 19.5
  */
-export class ActionEngine {
-  private actions: Map<string, ActionDefinition<any, any>>;
-  private context: RuntimeContext | null;
+export class ActionEngine<TConfig = Record<string, unknown>> {
+  private actions: Map<string, ActionDefinition<any, any, TConfig>>;
+  private context: RuntimeContext<TConfig> | null;
   private logger: Logger;
 
   constructor(logger: Logger) {
@@ -26,7 +26,7 @@ export class ActionEngine {
    * 
    * Requirement: 6.6
    */
-  setContext(context: RuntimeContext): void {
+  setContext(context: RuntimeContext<TConfig>): void {
     this.context = context;
   }
 
@@ -42,7 +42,7 @@ export class ActionEngine {
    * 
    * Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 6.2, 6.4, 14.1, 14.2, 14.3, 14.4, 14.5, 14.6, 15.1, 15.2, 15.3, 15.4, 15.5, 16.2, 19.1, 19.2, 19.3, 19.4, 19.5
    */
-  registerAction<P = unknown, R = unknown>(action: ActionDefinition<P, R>): () => void {
+  registerAction<P = unknown, R = unknown>(action: ActionDefinition<P, R, TConfig>): () => void {
     // Validate required fields (Requirements 19.1, 19.2, 19.3, 19.5)
     if (!action.id || typeof action.id !== 'string') {
       throw new ValidationError('Action', 'id');
@@ -128,7 +128,7 @@ export class ActionEngine {
    * Requirements: 11.1, 11.2, 11.3, 11.4, 11.5
    */
   private async runWithTimeout(
-    action: ActionDefinition<any, any>,
+    action: ActionDefinition<any, any, TConfig>,
     params: unknown
   ): Promise<unknown> {
     let timeoutId: NodeJS.Timeout | number;
@@ -165,7 +165,7 @@ export class ActionEngine {
    * 
    * Requirement: 13.2
    */
-  getAction(id: string): ActionDefinition | null {
+  getAction(id: string): ActionDefinition<unknown, unknown, TConfig> | null {
     return this.actions.get(id) ?? null;
   }
 
@@ -177,7 +177,7 @@ export class ActionEngine {
    * 
    * Requirements: 10.1, 10.2, 10.3, 10.4, 10.5, 13.2
    */
-  getAllActions(): ActionDefinition[] {
+  getAllActions(): ActionDefinition<unknown, unknown, TConfig>[] {
     return Array.from(this.actions.values());
   }
 

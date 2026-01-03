@@ -1,7 +1,7 @@
 import { PluginDefinition, RuntimeContext, Logger, ValidationError, DuplicateRegistrationError } from './types.js';
 
-export class PluginRegistry {
-  private plugins: Map<string, PluginDefinition>;
+export class PluginRegistry<TConfig = Record<string, unknown>> {
+  private plugins: Map<string, PluginDefinition<TConfig>>;
   private initializedPlugins: string[]; // Changed from Set to Array to preserve order
   private logger: Logger;
 
@@ -11,7 +11,7 @@ export class PluginRegistry {
     this.logger = logger;
   }
 
-  registerPlugin(plugin: PluginDefinition): void {
+  registerPlugin(plugin: PluginDefinition<TConfig>): void {
     // Validate required fields with ValidationError
     if (!plugin.name || typeof plugin.name !== 'string') {
       throw new ValidationError('Plugin', 'name');
@@ -31,11 +31,11 @@ export class PluginRegistry {
     this.plugins.set(plugin.name, plugin);
   }
 
-  getPlugin(name: string): PluginDefinition | null {
+  getPlugin(name: string): PluginDefinition<TConfig> | null {
     return this.plugins.get(name) ?? null;
   }
 
-  getAllPlugins(): PluginDefinition[] {
+  getAllPlugins(): PluginDefinition<TConfig>[] {
     // Return array copy to prevent external mutation
     return Array.from(this.plugins.values());
   }
@@ -53,7 +53,7 @@ export class PluginRegistry {
     return [...this.initializedPlugins];
   }
 
-  async executeSetup(context: RuntimeContext): Promise<void> {
+  async executeSetup(context: RuntimeContext<TConfig>): Promise<void> {
     const initialized: string[] = [];
     let failingPluginName: string | undefined;
 
@@ -61,6 +61,23 @@ export class PluginRegistry {
       // Execute plugin setup callbacks sequentially in registration order
       for (const plugin of this.plugins.values()) {
         failingPluginName = plugin.name; // Track current plugin in case it fails
+
+        // Dependency Validation (Requirement 14.7)
+        if (plugin.dependencies && plugin.dependencies.length > 0) {
+          for (const dep of plugin.dependencies) {
+            // Check if dependency is present in registry
+            if (!this.plugins.has(dep)) {
+              throw new Error(`Plugin "${plugin.name}" requires missing dependency "${dep}"`);
+            }
+            // Check if dependency is already initialized (order matters)
+            // Note: SCR processes plugins in registration order. If dependencies are registered but not yet initialized,
+            // it implies a wrong order.
+            if (!this.initializedPlugins.includes(dep)) {
+              throw new Error(`Plugin "${plugin.name}" requires dependency "${dep}" to be initialized first`);
+            }
+          }
+        }
+
         // Support both sync and async setup callbacks
         await plugin.setup(context);
         // Track successfully initialized plugins
@@ -95,7 +112,7 @@ export class PluginRegistry {
     }
   }
 
-  async executeDispose(context: RuntimeContext): Promise<void> {
+  async executeDispose(context: RuntimeContext<TConfig>): Promise<void> {
     // Dispose in reverse order of initialization
     for (let i = this.initializedPlugins.length - 1; i >= 0; i--) {
       const pluginName = this.initializedPlugins[i];
