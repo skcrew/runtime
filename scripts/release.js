@@ -5,11 +5,13 @@ import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 
 const args = process.argv.slice(2);
-const version = args[0];
+const isDryRun = args.includes('--dry-run');
+const version = args.find(arg => !arg.startsWith('--'));
 
 if (!version) {
-  console.error('Usage: node scripts/release.js <version>');
-  console.error('Example: node scripts/release.js 0.2.0');
+  console.error('Usage: node scripts/release.js <version> [--dry-run]');
+  console.error('Example: node scripts/release.js 0.2.1');
+  console.error('Example: node scripts/release.js 0.2.1 --dry-run');
   process.exit(1);
 }
 
@@ -21,7 +23,30 @@ if (!/^\d+\.\d+\.\d+$/.test(version)) {
 
 const tag = `v${version}`;
 
+if (isDryRun) {
+  console.log('🧪 DRY RUN MODE - No changes will be made');
+  console.log('');
+}
+
 console.log(`🚀 Preparing release ${tag}...`);
+
+// Helper function to execute commands (with dry-run support)
+function execute(command, options = {}) {
+  if (isDryRun) {
+    console.log(`[DRY RUN] Would execute: ${command}`);
+    return '';
+  }
+  return execSync(command, options);
+}
+
+// Helper function to write files (with dry-run support)
+function writeFile(path, content) {
+  if (isDryRun) {
+    console.log(`[DRY RUN] Would write to: ${path}`);
+    return;
+  }
+  writeFileSync(path, content);
+}
 
 try {
   // 1. Check if we're on main branch
@@ -40,7 +65,18 @@ try {
     process.exit(1);
   }
 
-  // 3. Update package.json version
+  // 3. Check if tag already exists
+  try {
+    const existingTag = execSync(`git tag -l "${tag}"`, { encoding: 'utf8' }).trim();
+    if (existingTag) {
+      console.error(`❌ Tag ${tag} already exists`);
+      process.exit(1);
+    }
+  } catch (error) {
+    // Tag doesn't exist, which is what we want
+  }
+
+  // 4. Update package.json version
   console.log('📝 Checking package.json version...');
   const packagePath = join(process.cwd(), 'package.json');
   const packageJson = JSON.parse(readFileSync(packagePath, 'utf8'));
@@ -48,52 +84,62 @@ try {
   let versionChanged = false;
   if (packageJson.version !== version) {
     console.log(`📝 Updating package.json version from ${packageJson.version} to ${version}...`);
-    packageJson.version = version;
-    writeFileSync(packagePath, JSON.stringify(packageJson, null, 2) + '\n');
+    if (!isDryRun) {
+      packageJson.version = version;
+      writeFile(packagePath, JSON.stringify(packageJson, null, 2) + '\n');
+    }
     versionChanged = true;
   } else {
     console.log(`📝 Version ${version} already set in package.json`);
   }
 
-  // 4. Run tests
+  // 5. Run tests
   console.log('🧪 Running tests...');
-  execSync('npm test', { stdio: 'inherit' });
+  execute('npm test', { stdio: isDryRun ? 'pipe' : 'inherit' });
 
-  // 5. Build
+  // 6. Build
   console.log('🔨 Building...');
-  execSync('npm run build', { stdio: 'inherit' });
+  execute('npm run build', { stdio: isDryRun ? 'pipe' : 'inherit' });
 
-  // 6. Commit version bump (only if version changed)
+  // 7. Commit version bump (only if version changed)
   if (versionChanged) {
     console.log('💾 Committing version bump...');
-    execSync(`git add package.json`);
-    execSync(`git commit -m "chore: bump version to ${version}"`);
+    execute(`git add package.json`);
+    execute(`git commit -m "chore: bump version to ${version}"`);
   } else {
     console.log('💾 No version bump needed');
   }
 
-  // 7. Create and push tag
+  // 8. Create and push tag
   console.log(`🏷️  Creating tag ${tag}...`);
-  execSync(`git tag ${tag}`);
+  execute(`git tag ${tag}`);
 
-  // 8. Push to origin (skcrew)
+  // 9. Push to origin (skcrew)
   console.log('📤 Pushing to origin...');
-  execSync('git push origin main');
-  execSync(`git push origin ${tag}`);
+  execute('git push origin main');
+  execute(`git push origin ${tag}`);
 
-  // 9. Also push to backup
+  // 10. Also push to backup
   console.log('📤 Pushing to backup...');
-  execSync('git push backup main');
-  execSync(`git push backup ${tag}`);
+  execute('git push backup main');
+  execute(`git push backup ${tag}`);
 
-  console.log(`✅ Release ${tag} created successfully!`);
-  console.log('');
-  console.log('🎉 The GitHub Action will now:');
-  console.log('   1. Run tests and build');
-  console.log('   2. Publish to npm');
-  console.log('   3. Create GitHub release');
-  console.log('');
-  console.log(`📦 Track progress: https://github.com/skcrew/runtime/actions`);
+  if (isDryRun) {
+    console.log('');
+    console.log('🧪 DRY RUN COMPLETE - No actual changes were made');
+    console.log('');
+    console.log('To perform the actual release, run:');
+    console.log(`   node scripts/release.js ${version}`);
+  } else {
+    console.log(`✅ Release ${tag} created successfully!`);
+    console.log('');
+    console.log('🎉 The GitHub Action will now:');
+    console.log('   1. Run tests and build');
+    console.log('   2. Publish to npm');
+    console.log('   3. Create GitHub release');
+    console.log('');
+    console.log(`📦 Track progress: https://github.com/skcrew/runtime/actions`);
+  }
 
 } catch (error) {
   console.error('❌ Release failed:', error.message);
