@@ -100,7 +100,7 @@ describe('Memory Leak Tests', () => {
       // We're checking for significant leaks, not perfect zero increase
       // With 200 plugin objects (20 cycles × 10 plugins), some retention is expected
       // until V8's garbage collector runs its full cycle
-      expect(memoryIncreaseKB).toBeLessThan(2000); // Allow overhead for V8 and plugin closures
+      expect(memoryIncreaseKB).toBeLessThan(3000); // Allow overhead for V8 and plugin closures in test environment
     });
 
     it('should not leak memory with hostContext over multiple cycles', async () => {

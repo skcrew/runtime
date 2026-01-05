@@ -20,7 +20,8 @@
   "scripts": {
     "build": "rimraf dist && tsc",
     "build:examples": "rimraf dist-examples && tsc -p tsconfig.examples.json",
-    "test": "vitest run",
+    "test": "vitest run --reporter=json --outputFile=./test-output.json",
+    "test:verbose": "vitest run",
     "test:watch": "vitest",
     "prepublishOnly": "npm run build && npm test",
     "release": "node scripts/release.js",
