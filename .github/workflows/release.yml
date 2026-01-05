@@ -1,4 +1,4 @@
-name: Release
+name: Publish Package
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
 
 permissions:
   contents: write
-  id-token: write # Required for npm trusted publishing
+  id-token: write
 
 jobs:
   release:
@@ -21,21 +21,20 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
-        run: npm test
 
       - name: Build
         run: npm run build
 
-      - name: Publish to npm with trusted publishing
+      - name: Run tests
+        run: npm test
+      - name: Publish to npm
         run: npm publish
-        # No NPM_TOKEN needed - trusted publishing uses OIDC automatically
 
       - name: Create GitHub Release
         run: |
@@ -54,9 +53,6 @@ jobs:
           ## Documentation
 
           - [API Reference](./docs/api/reference.md)
-          - [Migration Guide](./docs/guides/migration-guide.md)
-          ## Verification
-
-          This package was published with [npm trusted publishing](https://docs.npmjs.com/trusted-publishers) and includes automatic provenance attestations for enhanced security."
+          - [Migration Guide](./docs/guides/migration-guide.md)"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
