@@ -1,0 +1,62 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  id-token: write # Required for npm trusted publishing
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish to npm with trusted publishing
+        run: npm publish
+        # No NPM_TOKEN needed - trusted publishing uses OIDC automatically
+
+      - name: Create GitHub Release
+        run: |
+          gh release create ${{ github.ref_name }} \
+            --title "Release ${{ github.ref_name }}" \
+            --notes "## What's Changed
+
+          See [CHANGELOG.md](./CHANGELOG.md) for detailed changes.
+
+          ## Installation
+
+          \`\`\`bash
+          npm install skeleton-crew-runtime@${{ github.ref_name }}
+          \`\`\`
+
+          ## Documentation
+
+          - [API Reference](./docs/api/reference.md)
+          - [Migration Guide](./docs/guides/migration-guide.md)
+          ## Verification
+
+          This package was published with [npm trusted publishing](https://docs.npmjs.com/trusted-publishers) and includes automatic provenance attestations for enhanced security."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
