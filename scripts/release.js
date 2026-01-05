@@ -41,11 +41,19 @@ try {
   }
 
   // 3. Update package.json version
-  console.log('📝 Updating package.json version...');
+  console.log('📝 Checking package.json version...');
   const packagePath = join(process.cwd(), 'package.json');
   const packageJson = JSON.parse(readFileSync(packagePath, 'utf8'));
-  packageJson.version = version;
-  writeFileSync(packagePath, JSON.stringify(packageJson, null, 2) + '\n');
+  
+  let versionChanged = false;
+  if (packageJson.version !== version) {
+    console.log(`📝 Updating package.json version from ${packageJson.version} to ${version}...`);
+    packageJson.version = version;
+    writeFileSync(packagePath, JSON.stringify(packageJson, null, 2) + '\n');
+    versionChanged = true;
+  } else {
+    console.log(`📝 Version ${version} already set in package.json`);
+  }
 
   // 4. Run tests
   console.log('🧪 Running tests...');
@@ -55,10 +63,14 @@ try {
   console.log('🔨 Building...');
   execSync('npm run build', { stdio: 'inherit' });
 
-  // 6. Commit version bump
-  console.log('💾 Committing version bump...');
-  execSync(`git add package.json`);
-  execSync(`git commit -m "chore: bump version to ${version}"`);
+  // 6. Commit version bump (only if version changed)
+  if (versionChanged) {
+    console.log('💾 Committing version bump...');
+    execSync(`git add package.json`);
+    execSync(`git commit -m "chore: bump version to ${version}"`);
+  } else {
+    console.log('💾 No version bump needed');
+  }
 
   // 7. Create and push tag
   console.log(`🏷️  Creating tag ${tag}...`);
