@@ -34,7 +34,7 @@ jobs:
       - name: Run tests
         run: npm test
       - name: Publish to npm
-        run: npm publish
+        run: npm publish --provenance
 
       - name: Create GitHub Release
         run: |
