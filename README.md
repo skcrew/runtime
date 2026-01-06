@@ -1,12 +1,45 @@
-# Skeleton Crew Runtime v0.2.0
+# Skeleton Crew Runtime v0.2.1
 
 **A minimal plugin runtime for building modular JavaScript applications.**
 
 Stop wiring up infrastructure. Start building features.
 
 ```bash
-npm install skeleton-crew-runtime@^0.2.0
+npm install skeleton-crew-runtime@^0.2.1
 ```
+
+## What's New in v0.2.1
+
+🔍 **Plugin Discovery** - Automatic plugin loading from file paths and npm packages  
+🔄 **Dependency Resolution** - Automatic topological sorting for correct plugin initialization order  
+🛠️ **Enhanced DX** - Better error messages with dependency hints for missing actions  
+🚀 **Production Ready** - All critical bugs fixed based on real-world usage feedback  
+✅ **Verified Stable** - Tested and validated in production migrations
+
+### Plugin Discovery Example
+
+```typescript
+// Automatic plugin discovery - no manual registration needed!
+const runtime = new Runtime<MyConfig>({
+  config: myConfig,
+  
+  // Load plugins from directories
+  pluginPaths: [
+    './plugins',           // Load all plugins from directory
+    './custom-plugin.js'   // Load specific plugin file
+  ],
+  
+  // Load plugins from npm packages
+  pluginPackages: [
+    '@my-org/auth-plugin',
+    'my-custom-plugin'
+  ]
+});
+
+await runtime.initialize(); // Plugins auto-loaded and sorted by dependencies!
+```
+
+**[→ Complete v0.2.1 Features](CHANGELOG.md#021---2025-01-07)**
 
 ## What's New in v0.2.0
 
@@ -188,7 +221,39 @@ console.log(`Message sent: ${result.messageId}`);
 
 ## Core concepts (5 minutes)
 
-### 1. Plugins: Isolated Features
+### 1. Plugin Discovery (v0.2.1): Automatic Loading
+
+No more manual plugin registration! The runtime can automatically discover and load plugins:
+
+```typescript
+import { Runtime } from 'skeleton-crew-runtime';
+
+const runtime = new Runtime<MyConfig>({
+  config: myConfig,
+  
+  // Discover plugins from file system
+  pluginPaths: [
+    './src/plugins',        // Directory: loads all .js/.mjs files
+    './auth-plugin.js',     // Single file: loads specific plugin
+    './dist/plugins'        // Works with compiled TypeScript too!
+  ],
+  
+  // Discover plugins from npm packages
+  pluginPackages: [
+    '@my-org/auth-plugin',  // npm package with plugin export
+    'my-logging-plugin'     // Any package that exports a plugin
+  ]
+});
+
+await runtime.initialize();
+// ✅ All plugins auto-loaded and sorted by dependencies!
+```
+
+**Dependency Resolution:** Plugins are automatically sorted by their `dependencies` array, so they initialize in the correct order.
+
+### 2. Plugins: Isolated Features
+
+### 2. Plugins: Isolated Features
 
 A plugin is just an object with a name and a setup function:
 
@@ -225,7 +290,7 @@ export const myPlugin: PluginDefinition<MyAppConfig> = {
 };
 ```
 
-### 2. Actions: Business Logic
+### 3. Actions: Business Logic
 
 Actions are named functions that do work:
 
@@ -269,7 +334,7 @@ const order = await ctx.actions.runAction<CreateOrderParams, Order>(
 );
 ```
 
-### 3. Events: Decouple Features
+### 4. Events: Decouple Features
 
 Plugins communicate without knowing about each other:
 
@@ -286,7 +351,7 @@ ctx.events.on('order:created', (order) => {
 await ctx.events.emitAsync('order:created', order); // Wait for all handlers
 ```
 
-### 4. Configuration: Type-Safe Access (v0.2.0)
+### 5. Configuration: Type-Safe Access (v0.2.0)
 
 Direct synchronous access to typed configuration:
 
@@ -336,7 +401,7 @@ setup(ctx: RuntimeContext<AppConfig>) {
 }
 ```
 
-### 5. Host Context: Bridge to Existing Code
+### 6. Host Context: Bridge to Existing Code
 
 Inject your existing services so plugins can use them:
 
@@ -360,7 +425,7 @@ const ctx = runtime.getContext();
 const { db, logger } = ctx.host;
 ```
 
-### 6. Screens (Optional): UI Definitions
+### 7. Screens (Optional): UI Definitions
 
 Define screens that any UI framework can render:
 
