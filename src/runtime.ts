@@ -144,9 +144,9 @@ export class Runtime<TConfig = Record<string, unknown>> {
           this.pluginPackages
         );
         
-        // Register discovered plugins
+        // Register discovered plugins (cast to correct type for compatibility)
         for (const plugin of discoveredPlugins) {
-          this.plugins.registerPlugin(plugin);
+          this.plugins.registerPlugin(plugin as PluginDefinition<TConfig>);
         }
       }
 
