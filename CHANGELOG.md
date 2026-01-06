@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2025-01-07
+
+### Documentation
+- **README Updates**: Updated README with comprehensive v0.2.1 feature documentation
+- **Plugin Discovery**: Added detailed plugin discovery examples and usage patterns
+- **Core Concepts**: Enhanced core concepts section with automatic dependency resolution
+- **Production Ready**: Highlighted verified stability and production-ready status
+
+### Notes
+- No code changes - documentation synchronization release only
+- Ensures npm package documentation reflects current v0.2.1 capabilities
+
 ## [0.2.1] - 2025-01-07
 
 ### Added
