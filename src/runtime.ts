@@ -7,6 +7,7 @@ import { EventBus } from './event-bus.js';
 import { UIBridge } from './ui-bridge.js';
 import { RuntimeContextImpl } from './runtime-context.js';
 import { createPerformanceMonitor, type PerformanceMonitor } from './performance.js';
+import { DirectoryPluginLoader } from './plugin-loader.js';
 
 /**
  * Runtime is the main orchestrator that coordinates all subsystems.
@@ -28,6 +29,9 @@ export class Runtime<TConfig = Record<string, unknown>> {
   private hostContext: Record<string, unknown>;
   private config: TConfig; // [NEW] Stored config
   private performanceMonitor: PerformanceMonitor;
+  private pluginLoader: DirectoryPluginLoader;
+  private pluginPaths: string[];
+  private pluginPackages: string[];
 
   /**
    * Creates a new Runtime instance with optional configuration.
@@ -41,13 +45,18 @@ export class Runtime<TConfig = Record<string, unknown>> {
   constructor(options?: RuntimeOptions<TConfig>) {
     this.logger = options?.logger ?? new ConsoleLogger();
     this.hostContext = options?.hostContext ?? {};
-    this.hostContext = options?.hostContext ?? {};
     // Ensure config is always an object and frozen initially
     this.config = options?.config ? { ...options.config } as TConfig : {} as TConfig;
     if (this.config && typeof this.config === 'object') {
       Object.freeze(this.config);
     }
     this.performanceMonitor = createPerformanceMonitor(options?.enablePerformanceMonitoring ?? false);
+    
+    // Plugin discovery setup
+    this.pluginLoader = new DirectoryPluginLoader(this.logger);
+    this.pluginPaths = options?.pluginPaths ?? [];
+    this.pluginPackages = options?.pluginPackages ?? [];
+    
     this.validateHostContext(this.hostContext);
   }
 
@@ -127,7 +136,21 @@ export class Runtime<TConfig = Record<string, unknown>> {
       // 1. Create PluginRegistry (Requirement 2.1)
       this.plugins = new PluginRegistry<TConfig>(this.logger);
 
-      // Register pending plugins
+      // Load plugins from discovery paths/packages (v0.2.1)
+      if (this.pluginPaths.length > 0 || this.pluginPackages.length > 0) {
+        this.logger.info('Loading plugins via DirectoryPluginLoader...');
+        const discoveredPlugins = await this.pluginLoader.loadPlugins(
+          this.pluginPaths,
+          this.pluginPackages
+        );
+        
+        // Register discovered plugins
+        for (const plugin of discoveredPlugins) {
+          this.plugins.registerPlugin(plugin);
+        }
+      }
+
+      // Register pending plugins (manually registered)
       for (const plugin of this.pendingPlugins) {
         this.plugins.registerPlugin(plugin);
       }

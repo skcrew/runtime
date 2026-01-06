@@ -2,12 +2,14 @@
 
 Complete API documentation for Skeleton Crew Runtime v0.2.0 including all TypeScript interfaces, classes, methods, and types with full generic support.
 
-## What's New in v0.2.0
+## What's New in v0.2.0+
 
 - **Generic Runtime/Context** - Full TypeScript generic support for type-safe configuration
 - **Sync Config Access** - Direct synchronous access to configuration via `ctx.config`
 - **Plugin Dependencies** - Explicit dependency resolution with validation
 - **Enhanced Logger** - Logger available on context for all plugins
+- **Plugin Discovery (v0.2.1)** - Automatic plugin loading from file paths and npm packages
+- **Performance Monitoring** - Optional performance monitoring and metrics collection
 
 ## Table of Contents
 
@@ -55,6 +57,9 @@ Creates a new Runtime instance with optional configuration.
   - `options.logger` (optional): Custom logger implementation (defaults to `ConsoleLogger`)
   - `options.hostContext` (optional): Host application services to inject (defaults to empty object)
   - `options.config` (optional): **[NEW v0.2.0]** Runtime configuration object
+  - `options.enablePerformanceMonitoring` (optional): Enable performance monitoring
+  - `options.pluginPaths` (optional): **[NEW v0.2.1]** Paths to plugin files or directories
+  - `options.pluginPackages` (optional): **[NEW v0.2.1]** npm package names to load as plugins
 
 **Example:**
 ```typescript
@@ -775,6 +780,65 @@ Clears all registered event handlers. Used during shutdown.
 
 Manages optional UI provider registration and screen rendering.
 
+### DirectoryPluginLoader
+
+**[NEW v0.2.1]** Handles automatic plugin discovery and loading from file paths and npm packages.
+
+#### Constructor
+
+```typescript
+constructor(logger: Logger)
+```
+
+Creates a new DirectoryPluginLoader instance with the specified logger.
+
+#### Methods
+
+##### loadPlugins
+
+```typescript
+async loadPlugins(
+  pluginPaths?: string[], 
+  pluginPackages?: string[]
+): Promise<PluginDefinition[]>
+```
+
+Loads plugins from specified paths and packages.
+
+**Parameters:**
+- `pluginPaths` (optional): Array of file paths or directory paths to scan for plugins
+- `pluginPackages` (optional): Array of npm package names to load as plugins
+
+**Returns:** Promise resolving to array of loaded plugin definitions
+
+**Example:**
+
+```typescript
+import { DirectoryPluginLoader, ConsoleLogger } from 'skeleton-crew-runtime';
+
+const loader = new DirectoryPluginLoader(new ConsoleLogger());
+
+// Load from paths and packages
+const plugins = await loader.loadPlugins(
+  ['./plugins', './custom/auth-plugin.js'],
+  ['@my-org/plugin-auth', 'shared-utils-plugin']
+);
+
+// Register loaded plugins
+for (const plugin of plugins) {
+  runtime.registerPlugin(plugin);
+}
+```
+
+**Plugin Discovery Rules:**
+
+1. **File Extensions**: Recognizes `.js`, `.mjs`, and `.ts` files as potential plugins
+2. **Directory Scanning**: Recursively scans directories for plugin files
+3. **Exclusions**: Ignores `node_modules`, `dist`, test files (`*.test.*`, `*.spec.*`)
+4. **Export Patterns**: Looks for plugins in `default`, `plugin`, or module root exports
+5. **Validation**: Validates plugin structure (name, version, setup function required)
+6. **Error Handling**: Logs errors but continues loading other plugins
+
 #### Constructor
 
 ```typescript
@@ -1064,19 +1128,76 @@ class CustomLogger implements Logger {
 Configuration options for Runtime initialization.
 
 ```typescript
-interface RuntimeOptions {
+interface RuntimeOptions<TConfig = Record<string, unknown>> {
   logger?: Logger;
   hostContext?: Record<string, unknown>;
+  config?: TConfig;
+  enablePerformanceMonitoring?: boolean;
+  
+  // Plugin Discovery Options (v0.2.1)
+  pluginPaths?: string[];
+  pluginPackages?: string[];
 }
 ```
 
 **Properties:**
 - `logger` (optional): Custom logger implementation (defaults to `ConsoleLogger`)
 - `hostContext` (optional): Host application services to inject into the runtime (defaults to empty object)
+- `config` (optional): **[NEW v0.2.0]** Runtime configuration object for type-safe access
+- `enablePerformanceMonitoring` (optional): Enable performance monitoring and metrics collection
+- `pluginPaths` (optional): **[NEW v0.2.1]** Array of file paths or directories to load plugins from
+- `pluginPackages` (optional): **[NEW v0.2.1]** Array of npm package names to load as plugins
 
 **Host Context Usage:**
 
 The `hostContext` option enables legacy applications to inject existing services into the runtime, allowing plugins to access these services without tight coupling. This is particularly useful for incremental migration scenarios.
+
+**Plugin Discovery Options (v0.2.1):**
+
+The `pluginPaths` and `pluginPackages` options enable automatic plugin discovery and loading:
+
+- `pluginPaths`: Specify file paths or directories containing plugin files. The runtime will automatically load and register plugins from these locations.
+- `pluginPackages`: Specify npm package names to load as plugins. Useful for loading published plugin packages.
+
+**Plugin Discovery Examples:**
+
+```typescript
+// Load plugins from directories and files
+const runtime = new Runtime({
+  pluginPaths: [
+    './plugins',                    // Load all plugins from directory
+    './custom-plugins/auth.js',     // Load specific plugin file
+    '../shared/plugins'             // Load from relative path
+  ]
+});
+
+// Load plugins from npm packages
+const runtime = new Runtime({
+  pluginPackages: [
+    '@my-org/plugin-auth',          // Scoped package
+    'my-custom-plugin',             // Regular package
+    '@company/shared-plugins'       // Organization package
+  ]
+});
+
+// Combine both approaches
+const runtime = new Runtime({
+  pluginPaths: ['./local-plugins'],
+  pluginPackages: ['@my-org/plugin-auth'],
+  config: { apiUrl: 'https://api.example.com' }
+});
+
+await runtime.initialize(); // Plugins loaded automatically
+```
+
+**Plugin Discovery Behavior:**
+
+1. **File Discovery**: For `pluginPaths`, the runtime scans for `.js`, `.mjs`, and `.ts` files
+2. **Package Loading**: For `pluginPackages`, the runtime uses dynamic imports to load npm packages
+3. **Validation**: All discovered plugins are validated before registration
+4. **Error Handling**: Invalid plugins are logged but don't stop the initialization process
+5. **Load Order**: Discovered plugins are loaded before manually registered plugins
+- `pluginPackages`: Specify npm package names that export plugins. The runtime will dynamically import and register these packages as plugins.
 
 **Example:**
 ```typescript
@@ -1090,7 +1211,30 @@ const runtime = new Runtime({
       apiKey: process.env.API_KEY,
       apiUrl: 'https://api.example.com'
     }
-  }
+  },
+  
+  // v0.2.1: Automatic plugin discovery
+  pluginPaths: [
+    './plugins/core-plugin.js',
+    './plugins/custom/',  // Load all plugins from directory
+    '/absolute/path/to/plugin.js'
+  ],
+  pluginPackages: [
+    '@myorg/analytics-plugin',
+    'skeleton-crew-ui-plugin',
+    'my-custom-plugin-package'
+  ],
+  
+  // v0.2.0: Type-safe configuration
+  config: {
+    apiUrl: 'https://api.example.com',
+    features: {
+      analytics: true,
+      debugging: process.env.NODE_ENV === 'development'
+    }
+  },
+  
+  enablePerformanceMonitoring: true
 });
 
 await runtime.initialize();
@@ -1121,7 +1265,16 @@ The runtime validates host context and logs warnings for common issues:
 
 These are warnings only - initialization continues normally.
 
-**Best Practices:**
+**Plugin Discovery Best Practices (v0.2.1):**
+- ✅ DO use relative paths for project-local plugins: `'./plugins/my-plugin.js'`
+- ✅ DO use absolute paths for system-wide plugins: `'/usr/local/lib/plugins/system-plugin.js'`
+- ✅ DO specify directories to load all plugins: `'./plugins/'` (loads all `.js` files)
+- ✅ DO use published npm packages: `'@myorg/analytics-plugin'`
+- ❌ DON'T mix plugin discovery with manual registration (choose one approach)
+- ❌ DON'T use plugin discovery in production without proper validation
+- ❌ DON'T load untrusted plugins from arbitrary paths
+
+**Host Context Best Practices:**
 - ✅ DO inject: Database connections, HTTP clients, loggers, configuration objects
 - ✅ DO inject: Stateless services and utilities
 - ❌ DON'T inject: Request-scoped data (user sessions, request objects)
@@ -1760,7 +1913,338 @@ ctx.events.on("runtime:shutdown", (data) => {
 
 ---
 
-## Best Practices
+## Plugin Discovery (v0.2.1)
+
+Skeleton Crew Runtime v0.2.1 introduces automatic plugin discovery capabilities, allowing you to load plugins from file paths and npm packages without manual registration.
+
+### Plugin Discovery Options
+
+#### `pluginPaths: string[]`
+
+Automatically load plugins from specified file paths or directories.
+
+**Supported Formats:**
+- **Single File**: `'./plugins/my-plugin.js'` - Load specific plugin file
+- **Directory**: `'./plugins/'` - Load all `.js` files from directory (non-recursive)
+- **Absolute Path**: `'/usr/local/lib/plugins/system-plugin.js'` - Load from absolute path
+- **Glob Patterns**: `'./plugins/**/*.plugin.js'` - Load files matching pattern
+
+**Example:**
+```typescript
+const runtime = new Runtime({
+  pluginPaths: [
+    './plugins/core-plugin.js',        // Single file
+    './plugins/custom/',               // Directory (all .js files)
+    '/absolute/path/to/plugin.js',     // Absolute path
+    './plugins/**/*.plugin.js'         // Glob pattern
+  ]
+});
+```
+
+#### `pluginPackages: string[]`
+
+Automatically load plugins from npm packages.
+
+**Supported Formats:**
+- **Package Name**: `'my-plugin-package'` - Load from node_modules
+- **Scoped Package**: `'@myorg/analytics-plugin'` - Load scoped package
+- **Version Specific**: `'plugin-name@1.2.3'` - Load specific version (if available)
+
+**Example:**
+```typescript
+const runtime = new Runtime({
+  pluginPackages: [
+    '@myorg/analytics-plugin',
+    'skeleton-crew-ui-plugin',
+    'my-custom-plugin-package'
+  ]
+});
+```
+
+### Plugin Discovery Workflow
+
+1. **Discovery Phase** (during `runtime.initialize()`):
+   - Resolve all paths in `pluginPaths`
+   - Import all packages in `pluginPackages`
+   - Validate plugin exports
+   - Register discovered plugins
+
+2. **Registration Phase**:
+   - Manually registered plugins (via `registerPlugin()`)
+   - Auto-discovered plugins (from paths and packages)
+   - Dependency resolution across all plugins
+
+3. **Initialization Phase**:
+   - Execute plugin setup callbacks in dependency order
+
+### Plugin Export Requirements
+
+For automatic discovery, plugins must export a default plugin definition:
+
+**ES Module Export:**
+```typescript
+// my-plugin.js
+import { PluginDefinition } from 'skeleton-crew-runtime';
+
+const myPlugin: PluginDefinition = {
+  name: 'my-plugin',
+  version: '1.0.0',
+  setup(ctx) {
+    // Plugin logic
+  }
+};
+
+export default myPlugin;
+```
+
+**CommonJS Export:**
+```javascript
+// my-plugin.js
+module.exports = {
+  name: 'my-plugin',
+  version: '1.0.0',
+  setup(ctx) {
+    // Plugin logic
+  }
+};
+```
+
+### Complete Plugin Discovery Example
+
+```typescript
+import { Runtime } from 'skeleton-crew-runtime';
+
+// Create runtime with mixed plugin loading strategies
+const runtime = new Runtime({
+  // Automatic discovery
+  pluginPaths: [
+    './plugins/core/',              // Load all plugins from directory
+    './plugins/analytics.plugin.js', // Specific analytics plugin
+    './custom/special-plugin.js'    // Custom plugin
+  ],
+  
+  pluginPackages: [
+    '@myorg/ui-plugin',            // Organization plugin
+    'skeleton-crew-logger-plugin', // Community plugin
+    'my-data-plugin'               // Custom npm package
+  ],
+  
+  // Configuration for discovered plugins
+  config: {
+    analytics: {
+      enabled: true,
+      apiKey: process.env.ANALYTICS_KEY
+    },
+    ui: {
+      theme: 'dark',
+      animations: true
+    }
+  }
+});
+
+// Manual plugin registration (optional - can mix with discovery)
+const customPlugin = {
+  name: 'custom-manual-plugin',
+  version: '1.0.0',
+  dependencies: ['analytics'], // Can depend on discovered plugins
+  setup(ctx) {
+    ctx.logger.info('Manual plugin initialized');
+  }
+};
+
+runtime.registerPlugin(customPlugin);
+
+// Initialize - discovers and registers all plugins
+await runtime.initialize();
+
+const ctx = runtime.getContext();
+
+// All plugins (discovered + manual) are now available
+console.log('Loaded plugins:', ctx.introspect.listPlugins());
+// ['analytics', 'ui-plugin', 'logger-plugin', 'data-plugin', 'custom-manual-plugin']
+```
+
+### Security Considerations
+
+**File System Access:**
+- Plugin discovery requires file system access
+- Only load plugins from trusted directories
+- Validate plugin sources in production environments
+- Consider using allowlists for production deployments
+
+**Package Loading:**
+- npm packages are loaded from `node_modules`
+- Ensure packages are from trusted sources
+- Use package-lock.json to pin versions
+- Audit dependencies regularly
+
+---
+
+## Performance Monitoring
+
+Skeleton Crew Runtime includes optional performance monitoring utilities designed to have near-zero overhead when not in use.
+
+### PerformanceMonitor Interface
+
+```typescript
+interface PerformanceMonitor {
+  startTimer(label: string): () => number;
+  recordMetric(name: string, value: number): void;
+  getMetrics(): Record<string, number>;
+}
+```
+
+**Methods:**
+- `startTimer(label: string)`: Returns a function that, when called, records the elapsed time
+- `recordMetric(name: string, value: number)`: Records a custom metric value
+- `getMetrics()`: Returns all recorded metrics as a key-value object
+
+### Performance Monitor Implementations
+
+#### NoOpPerformanceMonitor
+
+Production-ready no-op implementation with zero overhead.
+
+```typescript
+import { NoOpPerformanceMonitor } from 'skeleton-crew-runtime';
+
+const monitor = new NoOpPerformanceMonitor();
+const timer = monitor.startTimer('operation'); // No-op
+timer(); // Returns 0
+monitor.recordMetric('custom', 123); // No-op
+console.log(monitor.getMetrics()); // {}
+```
+
+#### SimplePerformanceMonitor
+
+Development implementation that records actual performance metrics.
+
+```typescript
+import { SimplePerformanceMonitor } from 'skeleton-crew-runtime';
+
+const monitor = new SimplePerformanceMonitor();
+
+// Time an operation
+const timer = monitor.startTimer('database-query');
+await performDatabaseQuery();
+const duration = timer(); // Returns actual duration in milliseconds
+
+// Record custom metrics
+monitor.recordMetric('users-loaded', 150);
+monitor.recordMetric('cache-hits', 42);
+
+// Get all metrics
+console.log(monitor.getMetrics());
+// { 'database-query': 245.67, 'users-loaded': 150, 'cache-hits': 42 }
+```
+
+### Factory Function
+
+#### createPerformanceMonitor(enabled?: boolean)
+
+Creates the appropriate performance monitor based on environment.
+
+```typescript
+import { createPerformanceMonitor } from 'skeleton-crew-runtime';
+
+// Development - enabled monitoring
+const devMonitor = createPerformanceMonitor(true);
+// Returns SimplePerformanceMonitor
+
+// Production - disabled monitoring (default)
+const prodMonitor = createPerformanceMonitor(false);
+// Returns NoOpPerformanceMonitor
+
+// Auto-detect from environment
+const monitor = createPerformanceMonitor(process.env.NODE_ENV === 'development');
+```
+
+### Runtime Integration
+
+Enable performance monitoring via RuntimeOptions:
+
+```typescript
+import { Runtime, createPerformanceMonitor } from 'skeleton-crew-runtime';
+
+const runtime = new Runtime({
+  enablePerformanceMonitoring: true, // Enables SimplePerformanceMonitor
+  
+  // Or provide custom monitor
+  performanceMonitor: createPerformanceMonitor(process.env.ENABLE_METRICS === 'true')
+});
+```
+
+### Usage in Plugins
+
+Access performance monitoring through the runtime context:
+
+```typescript
+const myPlugin: PluginDefinition = {
+  name: 'data-plugin',
+  version: '1.0.0',
+  setup(ctx) {
+    ctx.actions.registerAction({
+      id: 'data:load',
+      handler: async (params) => {
+        // Time the operation (works with both monitor types)
+        const timer = ctx.performance?.startTimer('data-load');
+        
+        try {
+          const data = await loadData(params);
+          
+          // Record custom metrics
+          ctx.performance?.recordMetric('records-loaded', data.length);
+          
+          return data;
+        } finally {
+          // Record timing
+          const duration = timer?.() ?? 0;
+          ctx.logger.debug(`Data load took ${duration}ms`);
+        }
+      }
+    });
+  }
+};
+```
+
+### Best Practices
+
+**Development:**
+```typescript
+// ✅ Enable monitoring in development
+const runtime = new Runtime({
+  enablePerformanceMonitoring: process.env.NODE_ENV === 'development'
+});
+```
+
+**Production:**
+```typescript
+// ✅ Disable monitoring in production (default)
+const runtime = new Runtime({
+  enablePerformanceMonitoring: false // or omit entirely
+});
+```
+
+**Plugin Usage:**
+```typescript
+// ✅ Safe usage - works with both monitor types
+const timer = ctx.performance?.startTimer('operation');
+const result = await performOperation();
+const duration = timer?.() ?? 0;
+
+// ✅ Conditional metrics
+if (ctx.performance) {
+  ctx.performance.recordMetric('custom-metric', value);
+}
+```
+
+**Performance Impact:**
+- **NoOpPerformanceMonitor**: Zero overhead, all methods are no-ops
+- **SimplePerformanceMonitor**: Minimal overhead, uses `performance.now()`
+- **Memory Usage**: SimplePerformanceMonitor stores metrics in memory
+- **Thread Safety**: Both implementations are safe for single-threaded JavaScript
+
+---
 
 ### Plugin Development
 

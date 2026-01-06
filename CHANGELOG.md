@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2025-01-06
+
+### Added
+- **Plugin Discovery**: Automatic plugin loading from file paths and npm packages via `RuntimeOptions`
+- **DirectoryPluginLoader**: New utility class for discovering and loading plugins
+- **Enhanced Documentation**: Comprehensive guide on avoiding closure pitfalls in plugin development
+- **Plugin Discovery Options**: `pluginPaths` and `pluginPackages` in `RuntimeOptions`
+
+### Changed
+- **Plugin Loading**: Discovered plugins are now loaded before manually registered plugins
+- **Error Handling**: Plugin discovery errors are logged but don't stop initialization
+
+### Documentation
+- Added "Avoiding Closure Pitfalls" guide with real-world examples
+- Updated API reference with plugin discovery documentation
+- Enhanced RuntimeOptions documentation with discovery examples
+
+### Developer Experience
+- Simplified plugin development workflow with automatic discovery
+- Better error messages for plugin loading failures
+- Comprehensive test coverage for plugin discovery features
+
 ## [0.2.0] - 2024-01-05
 
 ### Added

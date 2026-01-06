@@ -215,6 +215,10 @@ export interface RuntimeOptions<TConfig = Record<string, unknown>> {
   hostContext?: Record<string, unknown>;
   config?: TConfig; // [NEW] Sync Config
   enablePerformanceMonitoring?: boolean;
+  
+  // Plugin Discovery Options (v0.2.1)
+  pluginPaths?: string[]; // Paths to plugin files or directories
+  pluginPackages?: string[]; // npm package names to load as plugins
 }
 
 /**
