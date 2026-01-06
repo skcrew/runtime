@@ -25,6 +25,7 @@
     "test:watch": "vitest",
     "prepublishOnly": "npm run build && npm test",
     "release": "node scripts/release.js",
+    "release:dry": "node scripts/release.js --dry-run",
     "examples": "npm run build:examples && node dist-example/examples/playground/index.js",
     "example:01": "npm run build:examples && node dist-example/examples/basics/01-plugin-system/index.js",
     "example:02": "npm run build:examples && node dist-example/examples/basics/02-screen-registry/index.js",
