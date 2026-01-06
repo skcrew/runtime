@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.1] - 2025-01-06
+## [0.2.1] - 2025-01-07
 
 ### Added
 - **Plugin Discovery**: Automatic plugin loading from file paths and npm packages via `RuntimeOptions`
@@ -20,10 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Dependency Resolution**: Plugins are now automatically sorted by dependencies before initialization
 
 ### Fixed
-- **CRITICAL**: ESM interop issue with fast-glob import (was causing runtime crashes)
-- **CRITICAL**: Removed `**/dist/**` from default ignore patterns (was blocking compiled plugins)
-- **DX**: Improved error messages for missing actions with dependency hints
-- **Plugin Ordering**: Plugins now initialize in correct dependency order automatically
+- **CRITICAL**: ESM interop issue with fast-glob import (was causing runtime crashes) ✅ VERIFIED
+- **CRITICAL**: Removed `**/dist/**` from default ignore patterns (was blocking compiled plugins) ✅ VERIFIED
+- **DX**: Improved error messages for missing actions with dependency hints ✅ VERIFIED
+- **Plugin Ordering**: Plugins now initialize in correct dependency order automatically ✅ VERIFIED
 
 ### Documentation
 - Added "Avoiding Closure Pitfalls" guide with real-world examples
@@ -35,6 +35,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Better error messages for plugin loading failures and missing dependencies
 - Comprehensive test coverage for plugin discovery features
 - Automatic dependency resolution eliminates manual ordering concerns
+
+### Migration Verification
+- **Status**: ✅ COMPLETE - All critical bugs verified fixed in real-world usage
+- **Testing**: Validated with ai-extension-preview migration
+- **Stability**: Runtime confirmed stable with all reported issues resolved
+
+### Future Roadmap (v0.3+)
+Based on user feedback, the following improvements are planned for future releases:
+
+- **Enhanced Logger Documentation**: Clarify `ctx.logger` as primary logging mechanism
+- **Typed Plugin Dependencies**: Explore `ctx.plugins.get<T>('name')` for type-safe plugin access
+- **Plugin Config Validation**: Support for plugin-specific config validation (Zod/runtypes)
+- **Reduced Debug Noise**: Optimize DirectoryPluginLoader logging output
+- **Service Locator Pattern**: Consider structured inter-plugin communication patterns
 
 ## [0.2.0] - 2024-01-05
 
