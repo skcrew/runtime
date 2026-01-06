@@ -95,7 +95,26 @@ try {
 
   // 5. Run tests
   console.log('🧪 Running tests...');
-  execute('npm test', { stdio: isDryRun ? 'pipe' : 'inherit' });
+  try {
+    execute('npm test', { stdio: isDryRun ? 'pipe' : 'inherit' });
+    
+    // Check test results from JSON output
+    if (!isDryRun) {
+      try {
+        const testOutput = JSON.parse(readFileSync('test-output.json', 'utf8'));
+        if (!testOutput.success || testOutput.numFailedTests > 0) {
+          console.error(`❌ Tests failed: ${testOutput.numFailedTests} failed tests`);
+          process.exit(1);
+        }
+        console.log(`✅ All tests passed: ${testOutput.numPassedTests} tests`);
+      } catch (error) {
+        console.warn('⚠️  Could not parse test output, but npm test succeeded');
+      }
+    }
+  } catch (error) {
+    console.error('❌ Tests failed');
+    throw error;
+  }
 
   // 6. Build
   console.log('🔨 Building...');
