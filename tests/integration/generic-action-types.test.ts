@@ -690,7 +690,7 @@ describe('Generic Action Types Integration Tests', () => {
       // Action should no longer exist
       await expect(
         context.actions.runAction<TestPayload, string>('test-action', { value: 'test' })
-      ).rejects.toThrow('Action with id "test-action" not found');
+      ).rejects.toThrow('Action "test-action" not found');
     });
   });
 });

@@ -115,4 +115,85 @@ describe('DirectoryPluginLoader', () => {
       expect(path.endsWith('.js') || path.endsWith('.mjs') || path.endsWith('.ts')).toBe(false);
     });
   });
+
+  describe('Dependency Sorting', () => {
+    it('should sort plugins by dependencies', () => {
+      const plugins: PluginDefinition[] = [
+        {
+          name: 'app-plugin',
+          version: '1.0.0',
+          dependencies: ['auth-plugin'],
+          setup: vi.fn()
+        },
+        {
+          name: 'auth-plugin',
+          version: '1.0.0',
+          setup: vi.fn()
+        }
+      ];
+
+      const sorted = (loader as any).sortPluginsByDependencies(plugins);
+      expect(sorted).toHaveLength(2);
+      expect(sorted[0].name).toBe('auth-plugin');
+      expect(sorted[1].name).toBe('app-plugin');
+    });
+
+    it('should handle plugins without dependencies', () => {
+      const plugins: PluginDefinition[] = [
+        {
+          name: 'plugin-b',
+          version: '1.0.0',
+          setup: vi.fn()
+        },
+        {
+          name: 'plugin-a',
+          version: '1.0.0',
+          setup: vi.fn()
+        }
+      ];
+
+      const sorted = (loader as any).sortPluginsByDependencies(plugins);
+      expect(sorted).toHaveLength(2);
+      // Should maintain original order when no dependencies
+      expect(sorted.map(p => p.name)).toEqual(['plugin-b', 'plugin-a']);
+    });
+
+    it('should handle circular dependencies gracefully', () => {
+      const plugins: PluginDefinition[] = [
+        {
+          name: 'plugin-a',
+          version: '1.0.0',
+          dependencies: ['plugin-b'],
+          setup: vi.fn()
+        },
+        {
+          name: 'plugin-b',
+          version: '1.0.0',
+          dependencies: ['plugin-a'],
+          setup: vi.fn()
+        }
+      ];
+
+      const sorted = (loader as any).sortPluginsByDependencies(plugins);
+      expect(sorted).toHaveLength(2);
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Circular dependency detected')
+      );
+    });
+
+    it('should handle missing dependencies gracefully', () => {
+      const plugins: PluginDefinition[] = [
+        {
+          name: 'app-plugin',
+          version: '1.0.0',
+          dependencies: ['missing-plugin'],
+          setup: vi.fn()
+        }
+      ];
+
+      const sorted = (loader as any).sortPluginsByDependencies(plugins);
+      expect(sorted).toHaveLength(1);
+      expect(sorted[0].name).toBe('app-plugin');
+    });
+  });
 });

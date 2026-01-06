@@ -200,7 +200,17 @@ describe('ActionEngine', () => {
       engine.setContext(mockContext);
       
       await expect(engine.runAction('non-existent')).rejects.toThrow(
-        'Action with id "non-existent" not found'
+        'Action "non-existent" not found'
+      );
+    });
+
+    it('should provide helpful error message for namespaced actions', async () => {
+      const engine = new ActionEngine(createMockLogger());
+      const mockContext = createMockContext();
+      engine.setContext(mockContext);
+      
+      await expect(engine.runAction('auth:login')).rejects.toThrow(
+        'Action "auth:login" not found. If this action belongs to plugin "auth", ensure the plugin is initialized and "auth" is listed in the dependencies array of the calling plugin.'
       );
     });
 

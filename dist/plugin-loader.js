@@ -1,4 +1,4 @@
-import { glob } from 'fast-glob';
+import glob from 'fast-glob';
 import { pathToFileURL } from 'url';
 import { join, resolve } from 'path';
 export class DirectoryPluginLoader {
@@ -29,7 +29,7 @@ export class DirectoryPluginLoader {
             }
         }
         this.logger.info(`Loaded ${plugins.length} plugins via DirectoryPluginLoader`);
-        return plugins;
+        return this.sortPluginsByDependencies(plugins);
     }
     async loadFromPath(path) {
         const resolvedPath = resolve(path);
@@ -39,7 +39,7 @@ export class DirectoryPluginLoader {
         }
         const pattern = join(resolvedPath, '**/*.{js,mjs}');
         const files = await glob(pattern, {
-            ignore: ['**/node_modules/**', '**/dist/**', '**/*.test.*', '**/*.spec.*']
+            ignore: ['**/node_modules/**', '**/*.test.*', '**/*.spec.*']
         });
         const plugins = [];
         for (const file of files) {
@@ -48,7 +48,7 @@ export class DirectoryPluginLoader {
                 plugins.push(plugin);
             }
         }
-        return plugins;
+        return this.sortPluginsByDependencies(plugins);
     }
     async loadFromPackage(packageName) {
         try {
@@ -91,6 +91,41 @@ export class DirectoryPluginLoader {
             typeof obj.name === 'string' &&
             typeof obj.version === 'string' &&
             typeof obj.setup === 'function');
+    }
+    sortPluginsByDependencies(plugins) {
+        const pluginMap = new Map();
+        const visited = new Set();
+        const visiting = new Set();
+        const sorted = [];
+        for (const plugin of plugins) {
+            pluginMap.set(plugin.name, plugin);
+        }
+        const visit = (pluginName) => {
+            if (visited.has(pluginName)) {
+                return;
+            }
+            if (visiting.has(pluginName)) {
+                this.logger.warn(`Circular dependency detected involving plugin "${pluginName}"`);
+                return;
+            }
+            const plugin = pluginMap.get(pluginName);
+            if (!plugin) {
+                return;
+            }
+            visiting.add(pluginName);
+            const dependencies = plugin.dependencies || [];
+            for (const dep of dependencies) {
+                visit(dep);
+            }
+            visiting.delete(pluginName);
+            visited.add(pluginName);
+            sorted.push(plugin);
+        };
+        for (const plugin of plugins) {
+            visit(plugin.name);
+        }
+        this.logger.debug(`Sorted ${sorted.length} plugins by dependencies`);
+        return sorted;
     }
 }
 //# sourceMappingURL=plugin-loader.js.map

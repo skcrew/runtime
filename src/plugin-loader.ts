@@ -1,4 +1,4 @@
-import { glob } from 'fast-glob';
+import glob from 'fast-glob';
 import { pathToFileURL } from 'url';
 import { join, resolve } from 'path';
 import type { PluginDefinition, Logger } from './types.js';
@@ -45,7 +45,9 @@ export class DirectoryPluginLoader {
     }
 
     this.logger.info(`Loaded ${plugins.length} plugins via DirectoryPluginLoader`);
-    return plugins;
+    
+    // Sort all plugins by dependencies before returning
+    return this.sortPluginsByDependencies(plugins);
   }
 
   /**
@@ -63,7 +65,7 @@ export class DirectoryPluginLoader {
     // Treat as directory - find all plugin files
     const pattern = join(resolvedPath, '**/*.{js,mjs}');
     const files = await glob(pattern, { 
-      ignore: ['**/node_modules/**', '**/dist/**', '**/*.test.*', '**/*.spec.*']
+      ignore: ['**/node_modules/**', '**/*.test.*', '**/*.spec.*']
     });
 
     const plugins: PluginDefinition[] = [];
@@ -74,7 +76,7 @@ export class DirectoryPluginLoader {
       }
     }
 
-    return plugins;
+    return this.sortPluginsByDependencies(plugins);
   }
 
   /**
@@ -135,5 +137,58 @@ export class DirectoryPluginLoader {
       typeof (obj as any).version === 'string' &&
       typeof (obj as any).setup === 'function'
     );
+  }
+
+  /**
+   * Sort plugins by dependencies using topological sort
+   * Ensures plugins are initialized in correct dependency order
+   */
+  private sortPluginsByDependencies(plugins: PluginDefinition[]): PluginDefinition[] {
+    const pluginMap = new Map<string, PluginDefinition>();
+    const visited = new Set<string>();
+    const visiting = new Set<string>();
+    const sorted: PluginDefinition[] = [];
+
+    // Build plugin map
+    for (const plugin of plugins) {
+      pluginMap.set(plugin.name, plugin);
+    }
+
+    const visit = (pluginName: string): void => {
+      if (visited.has(pluginName)) {
+        return;
+      }
+
+      if (visiting.has(pluginName)) {
+        this.logger.warn(`Circular dependency detected involving plugin "${pluginName}"`);
+        return;
+      }
+
+      const plugin = pluginMap.get(pluginName);
+      if (!plugin) {
+        // Plugin not found in current batch - might be registered manually
+        return;
+      }
+
+      visiting.add(pluginName);
+
+      // Visit dependencies first
+      const dependencies = plugin.dependencies || [];
+      for (const dep of dependencies) {
+        visit(dep);
+      }
+
+      visiting.delete(pluginName);
+      visited.add(pluginName);
+      sorted.push(plugin);
+    };
+
+    // Visit all plugins
+    for (const plugin of plugins) {
+      visit(plugin.name);
+    }
+
+    this.logger.debug(`Sorted ${sorted.length} plugins by dependencies`);
+    return sorted;
   }
 }

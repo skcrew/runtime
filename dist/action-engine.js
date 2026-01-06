@@ -30,7 +30,10 @@ export class ActionEngine {
     async runAction(id, params) {
         const action = this.actions.get(id);
         if (!action) {
-            throw new Error(`Action with id "${id}" not found`);
+            const pluginName = id.includes(':') ? id.split(':')[0] : 'unknown';
+            throw new Error(`Action "${id}" not found. ` +
+                `If this action belongs to plugin "${pluginName}", ensure the plugin is initialized and ` +
+                `"${pluginName}" is listed in the dependencies array of the calling plugin.`);
         }
         if (!this.context) {
             throw new Error('RuntimeContext not set in ActionEngine');

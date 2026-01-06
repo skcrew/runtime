@@ -86,7 +86,13 @@ export class ActionEngine<TConfig = Record<string, unknown>> {
     // Check if action exists (Requirements 6.5, 16.4)
     const action = this.actions.get(id);
     if (!action) {
-      throw new Error(`Action with id "${id}" not found`);
+      // Extract plugin name from action ID for better error message
+      const pluginName = id.includes(':') ? id.split(':')[0] : 'unknown';
+      throw new Error(
+        `Action "${id}" not found. ` +
+        `If this action belongs to plugin "${pluginName}", ensure the plugin is initialized and ` +
+        `"${pluginName}" is listed in the dependencies array of the calling plugin.`
+      );
     }
 
     // Ensure context is available (Requirement 6.6)

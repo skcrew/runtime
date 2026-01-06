@@ -12,10 +12,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **DirectoryPluginLoader**: New utility class for discovering and loading plugins
 - **Enhanced Documentation**: Comprehensive guide on avoiding closure pitfalls in plugin development
 - **Plugin Discovery Options**: `pluginPaths` and `pluginPackages` in `RuntimeOptions`
+- **Topological Sort**: Automatic dependency-based plugin initialization ordering
 
 ### Changed
 - **Plugin Loading**: Discovered plugins are now loaded before manually registered plugins
 - **Error Handling**: Plugin discovery errors are logged but don't stop initialization
+- **Dependency Resolution**: Plugins are now automatically sorted by dependencies before initialization
+
+### Fixed
+- **CRITICAL**: ESM interop issue with fast-glob import (was causing runtime crashes)
+- **CRITICAL**: Removed `**/dist/**` from default ignore patterns (was blocking compiled plugins)
+- **DX**: Improved error messages for missing actions with dependency hints
+- **Plugin Ordering**: Plugins now initialize in correct dependency order automatically
 
 ### Documentation
 - Added "Avoiding Closure Pitfalls" guide with real-world examples
@@ -24,8 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Developer Experience
 - Simplified plugin development workflow with automatic discovery
-- Better error messages for plugin loading failures
+- Better error messages for plugin loading failures and missing dependencies
 - Comprehensive test coverage for plugin discovery features
+- Automatic dependency resolution eliminates manual ordering concerns
 
 ## [0.2.0] - 2024-01-05
 

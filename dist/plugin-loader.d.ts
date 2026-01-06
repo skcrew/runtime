@@ -7,5 +7,6 @@ export declare class DirectoryPluginLoader {
     private loadFromPackage;
     private loadPluginFile;
     private isValidPlugin;
+    private sortPluginsByDependencies;
 }
 //# sourceMappingURL=plugin-loader.d.ts.map
