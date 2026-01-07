@@ -9,10 +9,12 @@ import type { Logger } from './types.js';
  */
 export class EventBus {
   private handlers: Map<string, Set<(data: unknown) => void>>;
+  private wildcardHandlers: Map<string, Set<(data: unknown) => void>>; // [NEW] Wildcard support
   private logger: Logger;
 
   constructor(logger: Logger) {
     this.handlers = new Map();
+    this.wildcardHandlers = new Map();
     this.logger = logger;
   }
 
@@ -27,38 +29,48 @@ export class EventBus {
    * Requirements: 8.2, 8.6, 8.7, 2.1, 2.2, 2.3, 2.4, 2.5
    */
   emit(event: string, data?: unknown): void {
-    const eventHandlers = this.handlers.get(event);
-    
-    // Fast path: If no handlers registered for this event, do nothing
-    if (!eventHandlers || eventHandlers.size === 0) {
-      return;
+    const handlersToInvoke = new Set<(data: unknown) => void>();
+
+    // 1. Add Exact Match Handlers
+    const exactHandlers = this.handlers.get(event);
+    if (exactHandlers) {
+      exactHandlers.forEach(h => handlersToInvoke.add(h));
     }
 
-    // Optimize for single handler case (common scenario)
-    if (eventHandlers.size === 1) {
-      const handler = eventHandlers.values().next().value;
-      if (handler) {
-        try {
-          handler(data);
-        } catch (error) {
-          this.logger.error(`Event handler for "${event}" threw error`, error);
-        }
+    // 2. Add Wildcard Handlers
+    // Naive implementation: Iterate all wildcards. 
+    // Optimized: Could match specific segments, but start with simple iteration.
+    for (const [pattern, handlers] of this.wildcardHandlers) {
+      if (this.matchesWildcard(pattern, event)) {
+        handlers.forEach(h => handlersToInvoke.add(h));
       }
+    }
+
+    if (handlersToInvoke.size === 0) {
       return;
     }
 
-    // Multiple handlers: Invoke all handlers synchronously in registration order
-    // Set maintains insertion order, so iteration is in registration order
-    // Wrap each handler in try-catch to ensure all handlers are invoked (Requirements 2.1, 2.2, 2.4, 2.5)
-    for (const handler of eventHandlers) {
+    // Invoke all handlers synchronously
+    for (const handler of handlersToInvoke) {
       try {
         handler(data);
       } catch (error) {
-        // Log error with event name and error details (Requirements 2.1, 2.3)
         this.logger.error(`Event handler for "${event}" threw error`, error);
-        // Continue invoking remaining handlers (Requirement 2.2)
       }
     }
+  }
+
+  /**
+   * Helper to check wildcard matching
+   * pattern: 'foo:*' matches 'foo:bar', 'foo:bar:baz'
+   */
+  private matchesWildcard(pattern: string, event: string): boolean {
+    if (pattern === '*') return true;
+    if (pattern.endsWith('*')) {
+      const prefix = pattern.slice(0, -1);
+      return event.startsWith(prefix);
+    }
+    return pattern === event;
   }
 
   /**
@@ -73,15 +85,27 @@ export class EventBus {
    * Requirements: 12.1, 12.2, 12.3, 12.4, 12.5
    */
   async emitAsync(event: string, data?: unknown): Promise<void> {
-    const eventHandlers = this.handlers.get(event);
-    
-    // If no handlers registered for this event, do nothing
-    if (!eventHandlers) {
+    const handlersToInvoke = new Set<(data: unknown) => void>();
+
+    // 1. Add Exact Match Handlers
+    const exactHandlers = this.handlers.get(event);
+    if (exactHandlers) {
+      exactHandlers.forEach(h => handlersToInvoke.add(h));
+    }
+
+    // 2. Add Wildcard Handlers
+    for (const [pattern, handlers] of this.wildcardHandlers) {
+      if (this.matchesWildcard(pattern, event)) {
+        handlers.forEach(h => handlersToInvoke.add(h));
+      }
+    }
+
+    if (handlersToInvoke.size === 0) {
       return;
     }
 
     // Invoke all handlers asynchronously using Promise.allSettled (Requirements 12.3, 12.4)
-    const promises = Array.from(eventHandlers).map(handler =>
+    const promises = Array.from(handlersToInvoke).map(handler =>
       Promise.resolve()
         .then(() => handler(data))
         .catch(error => {
@@ -89,7 +113,7 @@ export class EventBus {
           this.logger.error(`Async event handler for "${event}" threw error`, error);
         })
     );
-    
+
     // Wait for all handlers to complete or fail (Requirement 12.4)
     await Promise.allSettled(promises);
   }
@@ -98,18 +122,21 @@ export class EventBus {
    * Registers an event handler for a specific event.
    * Returns an unsubscribe function that removes the handler when called.
    * 
-   * @param event - The event name
+   * @param event - The event name (can include wildcard *)
    * @param handler - The handler function to invoke when the event is emitted
    * @returns A function that unsubscribes the handler when called
    * 
    * Requirements: 8.3, 8.4, 8.5, 13.4
    */
   on(event: string, handler: (data: unknown) => void): () => void {
+    const isWildcard = event.includes('*');
+    const targetMap = isWildcard ? this.wildcardHandlers : this.handlers;
+
     // Get or create the Set of handlers for this event (Requirement 13.4)
-    let eventHandlers = this.handlers.get(event);
+    let eventHandlers = targetMap.get(event);
     if (!eventHandlers) {
       eventHandlers = new Set();
-      this.handlers.set(event, eventHandlers);
+      targetMap.set(event, eventHandlers);
     }
 
     // Add the handler to the Set (maintains insertion order)
@@ -118,10 +145,10 @@ export class EventBus {
     // Return unsubscribe function (Requirement 8.4)
     return () => {
       eventHandlers?.delete(handler);
-      
+
       // Clean up empty Sets to avoid memory leaks
       if (eventHandlers?.size === 0) {
-        this.handlers.delete(event);
+        targetMap.delete(event);
       }
     };
   }
@@ -134,5 +161,6 @@ export class EventBus {
    */
   clear(): void {
     this.handlers.clear();
+    this.wildcardHandlers.clear();
   }
 }
