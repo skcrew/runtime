@@ -1,6 +1,6 @@
 import glob from 'fast-glob';
 import { pathToFileURL } from 'url';
-import { join, resolve } from 'path';
+import { resolve } from 'path';
 import type { PluginDefinition, Logger } from './types.js';
 
 /**
@@ -8,7 +8,7 @@ import type { PluginDefinition, Logger } from './types.js';
  * Supports both file paths and npm packages
  */
 export class DirectoryPluginLoader {
-  constructor(private logger: Logger) {}
+  constructor(private logger: Logger) { }
 
   /**
    * Load plugins from specified paths and packages
@@ -45,7 +45,7 @@ export class DirectoryPluginLoader {
     }
 
     this.logger.info(`Loaded ${plugins.length} plugins via DirectoryPluginLoader`);
-    
+
     // Sort all plugins by dependencies before returning
     return this.sortPluginsByDependencies(plugins);
   }
@@ -55,7 +55,7 @@ export class DirectoryPluginLoader {
    */
   private async loadFromPath(path: string): Promise<PluginDefinition[]> {
     const resolvedPath = resolve(path);
-    
+
     // Check if it's a single file
     if (path.endsWith('.js') || path.endsWith('.mjs') || path.endsWith('.ts')) {
       const plugin = await this.loadPluginFile(resolvedPath);
@@ -63,9 +63,15 @@ export class DirectoryPluginLoader {
     }
 
     // Treat as directory - find all plugin files
-    const pattern = join(resolvedPath, '**/*.{js,mjs}');
-    const files = await glob(pattern, { 
-      ignore: ['**/node_modules/**', '**/*.test.*', '**/*.spec.*']
+    // Force forward slashes for fast-glob compatibility
+    const normalizedPath = resolvedPath.replace(/\\/g, '/');
+
+    // Use cwd to ensure node_modules ignore only applies to subdirectories
+    // fast-glob matches ignore patterns against absolute paths if the pattern is absolute
+    const files = await glob('**/*.{js,mjs}', {
+      cwd: normalizedPath,
+      absolute: true,
+      ignore: ['node_modules/**', '**/node_modules/**', '**/*.test.*', '**/*.spec.*']
     });
 
     const plugins: PluginDefinition[] = [];
@@ -86,10 +92,10 @@ export class DirectoryPluginLoader {
     try {
       // Dynamic import of npm package
       const module = await import(packageName);
-      
+
       // Look for default export or named exports that look like plugins
       const plugin = module.default || module.plugin || module;
-      
+
       if (this.isValidPlugin(plugin)) {
         this.logger.debug(`Loaded plugin from package: ${packageName}`);
         return plugin;
@@ -110,10 +116,10 @@ export class DirectoryPluginLoader {
       // Convert to file URL for dynamic import
       const fileUrl = pathToFileURL(filePath).href;
       const module = await import(fileUrl);
-      
+
       // Look for plugin in various export patterns
       const plugin = module.default || module.plugin || module;
-      
+
       if (this.isValidPlugin(plugin)) {
         this.logger.debug(`Loaded plugin from file: ${filePath}`);
         return plugin;
