@@ -1,12 +1,21 @@
-# Skeleton Crew Runtime v0.2.1
+# Skeleton Crew Runtime v0.3.0
 
 **A minimal plugin runtime for building modular JavaScript applications.**
 
 Stop wiring up infrastructure. Start building features.
 
 ```bash
-npm install skeleton-crew-runtime@^0.2.1
+npm install skeleton-crew-runtime@^0.3.0
 ```
+
+## What's New in v0.3.0
+
+✅ **Config Validation** - Validate plugin configuration before setup runs with detailed error reporting  
+📝 **Logger Documentation** - Comprehensive guide to the built-in logging system and external integrations  
+📊 **Optimized Telemetry** - Cleaner startup logs with consolidated plugin loading information  
+🔍 **Introspection** - Enhanced plugin metadata for better runtime transparency
+
+**[→ Complete v0.3.0 Features](CHANGELOG.md#030---2026-01-15)**
 
 ## What's New in v0.2.1
 
@@ -74,6 +83,8 @@ const runtime = new Runtime<MyConfig>({
 - **[API Reference](docs/api/reference.md)** - Complete TypeScript API
 - **[Core Concepts](docs/getting-started/README.md)** - Understand the fundamentals
 - **[Your First Plugin](docs/getting-started/your-first-plugin.md)** - Build your first feature
+- **[Logger Guide](docs/guides/logger-guide.md)** - Master the built-in logging system
+- **[Config Validation](docs/guides/config-validation.md)** - How to validate plugin configuration
 
 ### v0.2.0 Migration & Guides
 - **[v0.1.x → v0.2.0 Migration](docs/guides/v0.1-to-v0.2-migration.md)** - Complete migration walkthrough
