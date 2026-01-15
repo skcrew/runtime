@@ -78,6 +78,23 @@ export class PluginRegistry<TConfig = Record<string, unknown>> {
           }
         }
 
+        // Config Validation (v0.3 Feature)
+        // Validate plugin config before setup if validateConfig is defined
+        if (plugin.validateConfig) {
+          const validationResult = await plugin.validateConfig(context.config);
+          const isValid = typeof validationResult === 'boolean'
+            ? validationResult
+            : validationResult.valid;
+
+          if (!isValid) {
+            const errors = typeof validationResult === 'object' && validationResult.errors
+              ? validationResult.errors.join(', ')
+              : 'config validation failed';
+            throw new ValidationError('Plugin', `config (${errors})`, plugin.name);
+          }
+          this.logger.debug(`Plugin "${plugin.name}" config validated successfully`);
+        }
+
         // Support both sync and async setup callbacks
         await plugin.setup(context);
         // Track successfully initialized plugins

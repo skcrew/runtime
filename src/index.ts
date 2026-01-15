@@ -20,7 +20,8 @@ export {
   type ActionMetadata,
   type PluginMetadata,
   type IntrospectionMetadata,
-  type IntrospectionAPI
+  type IntrospectionAPI,
+  type ConfigValidationResult
 } from './types.js';
 export * from './plugin-loader.js';
 export * from './test-utils.js';

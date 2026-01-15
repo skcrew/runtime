@@ -108,10 +108,41 @@ export enum RuntimeState {
   Shutdown = 'shutdown'
 }
 
+/**
+ * Result of plugin config validation
+ * @see v0.3 Config Validation Feature
+ */
+export interface ConfigValidationResult {
+  valid: boolean;
+  errors?: string[];
+}
+
+/**
+ * Plugin definition with optional config validation
+ * @template TConfig - Configuration type (defaults to Record<string, unknown>)
+ * @see Requirements 13.1, 13.2, 13.3
+ */
 export interface PluginDefinition<TConfig = Record<string, unknown>> {
   name: string;
   version: string;
   dependencies?: string[];
+
+  /**
+   * Optional: Keys this plugin reads from config.
+   * Used for documentation and introspection purposes.
+   */
+  configKeys?: string[];
+
+  /**
+   * Optional: Validate config before plugin setup.
+   * Called during initialization, before setup().
+   * Return true/false or a ConfigValidationResult object for detailed errors.
+   * @param config - Current runtime configuration
+   * @returns Validation result
+   * @see v0.3 Config Validation Feature
+   */
+  validateConfig?: (config: TConfig) => boolean | ConfigValidationResult | Promise<boolean | ConfigValidationResult>;
+
   setup: (context: RuntimeContext<TConfig>) => void | Promise<void>;
   dispose?: (context: RuntimeContext<TConfig>) => void | Promise<void>;
 }
@@ -215,7 +246,7 @@ export interface RuntimeOptions<TConfig = Record<string, unknown>> {
   hostContext?: Record<string, unknown>;
   config?: TConfig; // [NEW] Sync Config
   enablePerformanceMonitoring?: boolean;
-  
+
   // Plugin Discovery Options (v0.2.1)
   pluginPaths?: string[]; // Paths to plugin files or directories
   pluginPackages?: string[]; // npm package names to load as plugins
