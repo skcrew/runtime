@@ -21,11 +21,14 @@ export class DirectoryPluginLoader {
     pluginPackages: string[] = []
   ): Promise<PluginDefinition[]> {
     const plugins: PluginDefinition[] = [];
+    let pathPluginCount = 0;
+    let packagePluginCount = 0;
 
     // Load from file paths
     for (const path of pluginPaths) {
       try {
         const pathPlugins = await this.loadFromPath(path);
+        pathPluginCount += pathPlugins.length;
         plugins.push(...pathPlugins);
       } catch (error) {
         this.logger.error(`Failed to load plugins from path "${path}":`, error);
@@ -37,6 +40,7 @@ export class DirectoryPluginLoader {
       try {
         const packagePlugin = await this.loadFromPackage(packageName);
         if (packagePlugin) {
+          packagePluginCount++;
           plugins.push(packagePlugin);
         }
       } catch (error) {
@@ -44,10 +48,20 @@ export class DirectoryPluginLoader {
       }
     }
 
-    this.logger.info(`Loaded ${plugins.length} plugins via DirectoryPluginLoader`);
-
     // Sort all plugins by dependencies before returning
-    return this.sortPluginsByDependencies(plugins);
+    const sorted = this.sortPluginsByDependencies(plugins);
+
+    // Consolidated logging: single info message with breakdown
+    if (sorted.length > 0) {
+      const breakdown = [];
+      if (pathPluginCount > 0) breakdown.push(`${pathPluginCount} from paths`);
+      if (packagePluginCount > 0) breakdown.push(`${packagePluginCount} from packages`);
+      const details = breakdown.length > 0 ? ` (${breakdown.join(', ')})` : '';
+      this.logger.info(`Loaded ${sorted.length} plugins${details}`);
+      this.logger.debug(`Plugin order: ${sorted.map(p => p.name).join(' → ')}`);
+    }
+
+    return sorted;
   }
 
   /**
@@ -194,7 +208,6 @@ export class DirectoryPluginLoader {
       visit(plugin.name);
     }
 
-    this.logger.debug(`Sorted ${sorted.length} plugins by dependencies`);
     return sorted;
   }
 }
