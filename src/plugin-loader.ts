@@ -52,12 +52,14 @@ export class DirectoryPluginLoader {
     const sorted = this.sortPluginsByDependencies(plugins);
 
     // Consolidated logging: single info message with breakdown
+    const breakdown = [];
+    if (pathPluginCount > 0) breakdown.push(`${pathPluginCount} from paths`);
+    if (packagePluginCount > 0) breakdown.push(`${packagePluginCount} from packages`);
+    const details = breakdown.length > 0 ? ` (${breakdown.join(', ')})` : '';
+
+    this.logger.info(`Loaded ${sorted.length} plugins${details}`);
+
     if (sorted.length > 0) {
-      const breakdown = [];
-      if (pathPluginCount > 0) breakdown.push(`${pathPluginCount} from paths`);
-      if (packagePluginCount > 0) breakdown.push(`${packagePluginCount} from packages`);
-      const details = breakdown.length > 0 ? ` (${breakdown.join(', ')})` : '';
-      this.logger.info(`Loaded ${sorted.length} plugins${details}`);
       this.logger.debug(`Plugin order: ${sorted.map(p => p.name).join(' → ')}`);
     }
 

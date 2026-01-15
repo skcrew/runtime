@@ -25,7 +25,19 @@ const createMockContext = (): RuntimeContext => ({
     on: vi.fn(),
   },
   getRuntime: vi.fn(),
-});
+  logger: createMockLogger(),
+  config: {},
+  host: {},
+  introspect: {
+    getActions: vi.fn(),
+    getAction: vi.fn(),
+    getPlugins: vi.fn(),
+    getPlugin: vi.fn(),
+    getScreens: vi.fn(),
+    getScreen: vi.fn(),
+    getRuntimeMetadata: vi.fn(),
+  }
+} as any);
 
 // Mock Logger for testing
 const createMockLogger = (): Logger => ({
@@ -230,11 +242,11 @@ describe('PluginRegistry', () => {
       expect(plugin1.setup).toHaveBeenCalled();
       expect(plugin2.setup).toHaveBeenCalled();
       expect(plugin3.setup).not.toHaveBeenCalled();
-      
+
       // Verify rollback: plugin1 should have dispose called
       expect(plugin1.dispose).toHaveBeenCalledWith(context);
       expect(plugin2.dispose).not.toHaveBeenCalled();
-      
+
       // Verify logger was called for rollback
       expect(logger.error).toHaveBeenCalledWith('Plugin setup failed, rolling back initialized plugins');
     });
@@ -257,6 +269,109 @@ describe('PluginRegistry', () => {
       await expect(registry.executeSetup(context)).rejects.toThrow(
         'Plugin "failing-plugin" setup failed: Custom error'
       );
+    });
+
+    it('should validate plugin config before setup if validateConfig is defined', async () => {
+      const logger = createMockLogger();
+      const registry = new PluginRegistry(logger);
+      const context = createMockContext();
+      (context as any).config = { valid: true };
+
+      const plugin: PluginDefinition = {
+        name: 'validated-plugin',
+        version: '1.0.0',
+        validateConfig: vi.fn(() => ({ valid: true })),
+        setup: vi.fn(),
+      };
+
+      registry.registerPlugin(plugin);
+      await registry.executeSetup(context);
+
+      expect(plugin.validateConfig).toHaveBeenCalledWith(context.config);
+      expect(plugin.setup).toHaveBeenCalled();
+      expect(logger.debug).toHaveBeenCalledWith('Plugin "validated-plugin" config validated successfully');
+    });
+
+    it('should support boolean return value from validateConfig', async () => {
+      const logger = createMockLogger();
+      const registry = new PluginRegistry(logger);
+      const context = createMockContext();
+
+      const plugin: PluginDefinition = {
+        name: 'boolean-validated-plugin',
+        version: '1.0.0',
+        validateConfig: vi.fn(() => true),
+        setup: vi.fn(),
+      };
+
+      registry.registerPlugin(plugin);
+      await registry.executeSetup(context);
+
+      expect(plugin.setup).toHaveBeenCalled();
+    });
+
+    it('should throw ValidationError when validateConfig returns false', async () => {
+      const logger = createMockLogger();
+      const registry = new PluginRegistry(logger);
+      const context = createMockContext();
+
+      const plugin: PluginDefinition = {
+        name: 'invalid-plugin',
+        version: '1.0.0',
+        validateConfig: vi.fn(() => false),
+        setup: vi.fn(),
+      };
+
+      registry.registerPlugin(plugin);
+
+      await expect(registry.executeSetup(context)).rejects.toThrow(ValidationError);
+      await expect(registry.executeSetup(context)).rejects.toThrow(
+        'Plugin "invalid-plugin" config validation failed: config (config validation failed)'
+      );
+      expect(plugin.setup).not.toHaveBeenCalled();
+    });
+
+    it('should throw ValidationError with custom errors from validateConfig result', async () => {
+      const logger = createMockLogger();
+      const registry = new PluginRegistry(logger);
+      const context = createMockContext();
+
+      const plugin: PluginDefinition = {
+        name: 'custom-error-plugin',
+        version: '1.0.0',
+        validateConfig: vi.fn(() => ({
+          valid: false,
+          errors: ['API key missing', 'Invalid region']
+        })),
+        setup: vi.fn(),
+      };
+
+      registry.registerPlugin(plugin);
+
+      await expect(registry.executeSetup(context)).rejects.toThrow(
+        'Plugin "custom-error-plugin" config validation failed: config (API key missing, Invalid region)'
+      );
+    });
+
+    it('should support async validateConfig', async () => {
+      const logger = createMockLogger();
+      const registry = new PluginRegistry(logger);
+      const context = createMockContext();
+
+      const plugin: PluginDefinition = {
+        name: 'async-validated-plugin',
+        version: '1.0.0',
+        validateConfig: vi.fn(async () => {
+          await new Promise(r => setTimeout(r, 10));
+          return { valid: true };
+        }),
+        setup: vi.fn(),
+      };
+
+      registry.registerPlugin(plugin);
+      await registry.executeSetup(context);
+
+      expect(plugin.setup).toHaveBeenCalled();
     });
   });
 
@@ -507,7 +622,7 @@ describe('PluginRegistry', () => {
 
       expect(registry.getAllPlugins()).toEqual([]);
     });
-    
+
     it('should return array copy to prevent external mutation', () => {
       const logger = createMockLogger();
       const registry = new PluginRegistry(logger);
@@ -526,7 +641,7 @@ describe('PluginRegistry', () => {
       expect(allPlugins1).toEqual(allPlugins2);
     });
   });
-  
+
   describe('getInitializedPlugins', () => {
     it('should return initialized plugin names in order', async () => {
       const logger = createMockLogger();
@@ -558,7 +673,7 @@ describe('PluginRegistry', () => {
 
       expect(registry.getInitializedPlugins()).toEqual([]);
     });
-    
+
     it('should return array copy to prevent external mutation', async () => {
       const logger = createMockLogger();
       const registry = new PluginRegistry(logger);

@@ -72,14 +72,14 @@ describe('DirectoryPluginLoader', () => {
     it('should handle empty plugin paths gracefully', async () => {
       const plugins = await loader.loadPlugins([], []);
       expect(plugins).toEqual([]);
-      expect(mockLogger.info).toHaveBeenCalledWith('Loaded 0 plugins via DirectoryPluginLoader');
+      expect(mockLogger.info).toHaveBeenCalledWith('Loaded 0 plugins');
     });
 
     it('should continue loading other plugins if one fails', async () => {
       // Test with empty arrays - should not fail
       const plugins = await loader.loadPlugins([], []);
       expect(plugins).toEqual([]);
-      expect(mockLogger.info).toHaveBeenCalledWith('Loaded 0 plugins via DirectoryPluginLoader');
+      expect(mockLogger.info).toHaveBeenCalledWith('Loaded 0 plugins');
     });
   });
 
@@ -90,7 +90,7 @@ describe('DirectoryPluginLoader', () => {
 
     it('should log successful plugin loading', async () => {
       await loader.loadPlugins([], []);
-      expect(mockLogger.info).toHaveBeenCalledWith('Loaded 0 plugins via DirectoryPluginLoader');
+      expect(mockLogger.info).toHaveBeenCalledWith('Loaded 0 plugins');
     });
   });
 
@@ -155,7 +155,7 @@ describe('DirectoryPluginLoader', () => {
       const sorted = (loader as any).sortPluginsByDependencies(plugins);
       expect(sorted).toHaveLength(2);
       // Should maintain original order when no dependencies
-      expect(sorted.map(p => p.name)).toEqual(['plugin-b', 'plugin-a']);
+      expect(sorted.map((p: any) => p.name)).toEqual(['plugin-b', 'plugin-a']);
     });
 
     it('should handle circular dependencies gracefully', () => {
