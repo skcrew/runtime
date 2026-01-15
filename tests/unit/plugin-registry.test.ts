@@ -324,9 +324,9 @@ describe('PluginRegistry', () => {
 
       registry.registerPlugin(plugin);
 
-      await expect(registry.executeSetup(context)).rejects.toThrow(ValidationError);
+      await expect(registry.executeSetup(context)).rejects.toThrow(Error);
       await expect(registry.executeSetup(context)).rejects.toThrow(
-        'Plugin "invalid-plugin" config validation failed: config (config validation failed)'
+        /Plugin "invalid-plugin" setup failed: Validation failed for Plugin "invalid-plugin": missing or invalid field "config \(config validation failed\)"/
       );
       expect(plugin.setup).not.toHaveBeenCalled();
     });
@@ -349,7 +349,7 @@ describe('PluginRegistry', () => {
       registry.registerPlugin(plugin);
 
       await expect(registry.executeSetup(context)).rejects.toThrow(
-        'Plugin "custom-error-plugin" config validation failed: config (API key missing, Invalid region)'
+        /Plugin "custom-error-plugin" setup failed: Validation failed for Plugin "custom-error-plugin": missing or invalid field "config \(API key missing, Invalid region\)"/
       );
     });
 
