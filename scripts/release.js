@@ -80,7 +80,7 @@ try {
   console.log('📝 Checking package.json version...');
   const packagePath = join(process.cwd(), 'package.json');
   const packageJson = JSON.parse(readFileSync(packagePath, 'utf8'));
-  
+
   let versionChanged = false;
   if (packageJson.version !== version) {
     console.log(`📝 Updating package.json version from ${packageJson.version} to ${version}...`);
@@ -97,7 +97,7 @@ try {
   console.log('🧪 Running tests...');
   try {
     execute('npm test', { stdio: isDryRun ? 'pipe' : 'inherit' });
-    
+
     // Check test results from JSON output
     if (!isDryRun) {
       try {
@@ -136,12 +136,12 @@ try {
   // 9. Push to origin (skcrew)
   console.log('📤 Pushing to origin...');
   execute('git push origin main');
-  execute(`git push origin ${tag}`);
+  execute(`git push origin refs/tags/${tag}`);
 
   // 10. Also push to backup
   console.log('📤 Pushing to backup...');
   execute('git push backup main');
-  execute(`git push backup ${tag}`);
+  execute(`git push backup refs/tags/${tag}`);
 
   if (isDryRun) {
     console.log('');
