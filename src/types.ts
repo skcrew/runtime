@@ -200,6 +200,43 @@ export interface RuntimeContext<TConfig = Record<string, unknown>> {
     emitAsync(event: string, data?: unknown): Promise<void>;
     on(event: string, handler: (data: unknown) => void): () => void;
   };
+
+  /**
+   * Service Locator API for typed inter-plugin communication.
+   * Plugins can register services that other plugins can then consume.
+   * @see v0.3 Service Locator Feature
+   */
+  services: {
+    /**
+     * Registers a service by name.
+     * @param name - Unique service identifier
+     * @param service - Service implementation
+     * @throws DuplicateRegistrationError if service name is already taken
+     */
+    register<T>(name: string, service: T): void;
+
+    /**
+     * Retrieves a service by name.
+     * @param name - Unique service identifier
+     * @returns The registered service implementation
+     * @throws Error if service is not found
+     */
+    get<T>(name: string): T;
+
+    /**
+     * Checks if a service is registered.
+     * @param name - Unique service identifier
+     * @returns true if service exists, false otherwise
+     */
+    has(name: string): boolean;
+
+    /**
+     * Lists all registered service names.
+     * @returns Array of service identifiers
+     */
+    list(): string[];
+  };
+
   getRuntime(): Runtime<TConfig>;
 
   /**

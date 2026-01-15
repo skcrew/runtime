@@ -29,6 +29,7 @@ export * from './plugins/ConfigPlugin.js';
 export { ActionEngine } from './action-engine.js';
 export { EventBus } from './event-bus.js';
 export { PluginRegistry } from './plugin-registry.js';
+export { ServiceRegistry } from './service-registry.js';
 export { UIBridge } from './ui-bridge.js';
 export { RuntimeContextImpl } from './runtime-context.js';
 // Duplicate exports removed

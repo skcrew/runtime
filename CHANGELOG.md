@@ -8,17 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.3.0] - 2026-01-15
 
 ### Added
+- **Service Locator API**: New `ctx.services` API for type-safe inter-plugin communication. Allows plugins to register and consume shared services without hard dependency coupling.
 - **Plugin Config Validation**: New `validateConfig` lifecycle method for plugins. Supports schema-based validation (Zod, etc.) and early initialization failure with detailed error reporting.
 - **Config Documentation**: New `configKeys` property on `PluginDefinition` for documenting and introspecting plugin configuration requirements.
 - **Logger Documentation**: Comprehensive guide on using the built-in `ctx.logger`, including integration examples with Winston and Pino.
 - **Config Validation Guide**: New dedicated guide for implementing plugin configuration validation.
+- **Service Locator Guide**: New dedicated guide for using the Service Locator pattern for inter-plugin communication.
 
 ### Changed
 - **Loading Telemetry**: Consolidated plugin loading messages into a single, clean info message with breakdown (e.g., "Loaded 7 plugins (5 from paths, 2 from packages)").
 - **Debug Logging**: Moved verbose plugin loading details (loading order) to debug level to reduce noise during standard startup.
 
 ### Fixed
-- **Type Exports**: Correctly export `ConfigValidationResult` and other v0.3 types from the core package.
+- **Type Exports**: Correctly export `ConfigValidationResult`, `ServiceRegistry`, and other v0.3 types from the core package.
+- **Unit Test Coverage**: Added comprehensive unit tests for Service Registry and Config Validation features.
 
 ## [0.2.4] - 2026-01-13
 

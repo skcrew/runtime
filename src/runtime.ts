@@ -8,6 +8,7 @@ import { UIBridge } from './ui-bridge.js';
 import { RuntimeContextImpl } from './runtime-context.js';
 import { createPerformanceMonitor, type PerformanceMonitor } from './performance.js';
 import { DirectoryPluginLoader } from './plugin-loader.js';
+import { ServiceRegistry } from './service-registry.js';
 
 /**
  * Runtime is the main orchestrator that coordinates all subsystems.
@@ -20,6 +21,7 @@ export class Runtime<TConfig = Record<string, unknown>> {
   private screens!: ScreenRegistry;
   private actions!: ActionEngine<TConfig>;
   private events!: EventBus;
+  private services!: ServiceRegistry;
   private ui!: UIBridge<TConfig>;
   private context!: RuntimeContext<TConfig>;
   private initialized: boolean = false;
@@ -51,12 +53,12 @@ export class Runtime<TConfig = Record<string, unknown>> {
       Object.freeze(this.config);
     }
     this.performanceMonitor = createPerformanceMonitor(options?.enablePerformanceMonitoring ?? false);
-    
+
     // Plugin discovery setup
     this.pluginLoader = new DirectoryPluginLoader(this.logger);
     this.pluginPaths = options?.pluginPaths ?? [];
     this.pluginPackages = options?.pluginPackages ?? [];
-    
+
     this.validateHostContext(this.hostContext);
   }
 
@@ -143,7 +145,7 @@ export class Runtime<TConfig = Record<string, unknown>> {
           this.pluginPaths,
           this.pluginPackages
         );
-        
+
         // Register discovered plugins (cast to correct type for compatibility)
         for (const plugin of discoveredPlugins) {
           this.plugins.registerPlugin(plugin as PluginDefinition<TConfig>);
@@ -165,15 +167,19 @@ export class Runtime<TConfig = Record<string, unknown>> {
       // 4. Create EventBus (Requirement 2.4)
       this.events = new EventBus(this.logger);
 
-      // 5. Create UIBridge
+      // 5. Create ServiceRegistry (v0.3 Feature)
+      this.services = new ServiceRegistry(this.logger);
+
+      // 6. Create UIBridge
       this.ui = new UIBridge<TConfig>(this.logger);
 
-      // 6. Create RuntimeContext after all subsystems (Requirements 1.2, 2.4, 9.7)
+      // 7. Create RuntimeContext after all subsystems (Requirements 1.2, 2.4, 9.7)
       this.context = new RuntimeContextImpl<TConfig>(
         this.screens,
         this.actions,
         this.plugins,
         this.events,
+        this.services,
         this,
         this.hostContext,
         this.logger
@@ -242,6 +248,7 @@ export class Runtime<TConfig = Record<string, unknown>> {
     this.actions.clear();
     this.events.clear();
     this.plugins.clear();
+    this.services.clear();
 
     // 4. Clear context reference in ActionEngine to break circular reference
     this.actions.setContext(null as any);

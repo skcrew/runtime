@@ -4,6 +4,7 @@ import type { ActionEngine } from './action-engine.js';
 import type { PluginRegistry } from './plugin-registry.js';
 import type { EventBus } from './event-bus.js';
 import type { Runtime } from './runtime.js';
+import type { ServiceRegistry } from './service-registry.js';
 
 /**
  * Deep freeze utility - recursively freezes an object and all nested objects.
@@ -48,6 +49,7 @@ export class RuntimeContextImpl<TConfig = Record<string, unknown>> implements Ru
   private actionEngine: ActionEngine<TConfig>;
   private pluginRegistry: PluginRegistry<TConfig>;
   private eventBus: EventBus;
+  private serviceRegistry: ServiceRegistry;
   private runtime: Runtime<TConfig>;
   private frozenHostContext: Readonly<Record<string, unknown>>;
   private introspectionAPI: IntrospectionAPI;
@@ -58,12 +60,14 @@ export class RuntimeContextImpl<TConfig = Record<string, unknown>> implements Ru
   private cachedActionsAPI: any;
   private cachedPluginsAPI: any;
   private cachedEventsAPI: any;
+  private cachedServicesAPI: any;
 
   constructor(
     screenRegistry: ScreenRegistry,
     actionEngine: ActionEngine<TConfig>,
     pluginRegistry: PluginRegistry<TConfig>,
     eventBus: EventBus,
+    serviceRegistry: ServiceRegistry,
     runtime: Runtime<TConfig>,
     hostContext: Record<string, unknown>,
     logger: Logger
@@ -72,6 +76,7 @@ export class RuntimeContextImpl<TConfig = Record<string, unknown>> implements Ru
     this.actionEngine = actionEngine;
     this.pluginRegistry = pluginRegistry;
     this.eventBus = eventBus;
+    this.serviceRegistry = serviceRegistry;
     this.runtime = runtime;
     this.loggerInstance = logger;
     // Cache the frozen copy to avoid creating new objects on every access
@@ -87,6 +92,7 @@ export class RuntimeContextImpl<TConfig = Record<string, unknown>> implements Ru
     this.cachedActionsAPI = this.createActionsAPI();
     this.cachedPluginsAPI = this.createPluginsAPI();
     this.cachedEventsAPI = this.createEventsAPI();
+    this.cachedServicesAPI = this.createServicesAPI();
   }
 
   /**
@@ -173,6 +179,31 @@ export class RuntimeContextImpl<TConfig = Record<string, unknown>> implements Ru
       },
       on: (event: string, handler: (data: unknown) => void): (() => void) => {
         return this.eventBus.on(event, handler);
+      }
+    };
+  }
+
+  /**
+   * Services API - exposes Service Registry operations for typed inter-plugin communication.
+   * Requirements: v0.3 Service Locator Feature
+   */
+  get services() {
+    return this.cachedServicesAPI;
+  }
+
+  private createServicesAPI() {
+    return {
+      register: <T>(name: string, service: T): void => {
+        this.serviceRegistry.register(name, service);
+      },
+      get: <T>(name: string): T => {
+        return this.serviceRegistry.get<T>(name);
+      },
+      has: (name: string): boolean => {
+        return this.serviceRegistry.has(name);
+      },
+      list: (): string[] => {
+        return this.serviceRegistry.list();
       }
     };
   }
