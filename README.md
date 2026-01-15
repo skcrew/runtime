@@ -1,12 +1,22 @@
-# Skeleton Crew Runtime v0.3.0
+# Skeleton Crew Runtime v0.3.1
 
 **A minimal plugin runtime for building modular JavaScript applications.**
 
 Stop wiring up infrastructure. Start building features.
 
 ```bash
-npm install skeleton-crew-runtime@^0.3.0
+npm install skeleton-crew-runtime@^0.3.1
 ```
+
+## What's New in v0.3.1
+
+✅ **Service Locator API** - New `ctx.services` API for type-safe inter-plugin communication  
+✅ **Config Validation** - Validate plugin configuration before setup runs with detailed error reporting  
+📝 **Service Locator Guide** - New dedicated guide for using the Service Locator pattern  
+📝 **Logger Documentation** - Comprehensive guide to the built-in logging system  
+📊 **Optimized Telemetry** - Cleaner startup logs with consolidated plugin loading info
+
+**[→ Complete v0.3.1 Features](CHANGELOG.md#031---2026-01-16)**
 
 ## What's New in v0.3.0
 
@@ -85,6 +95,7 @@ const runtime = new Runtime<MyConfig>({
 - **[Your First Plugin](docs/getting-started/your-first-plugin.md)** - Build your first feature
 - **[Logger Guide](docs/guides/logger-guide.md)** - Master the built-in logging system
 - **[Config Validation](docs/guides/config-validation.md)** - How to validate plugin configuration
+- **[Service Locator](docs/guides/service-locator-guide.md)** - Type-safe inter-plugin communication
 
 ### v0.2.0 Migration & Guides
 - **[v0.1.x → v0.2.0 Migration](docs/guides/v0.1-to-v0.2-migration.md)** - Complete migration walkthrough
@@ -436,7 +447,28 @@ const ctx = runtime.getContext();
 const { db, logger } = ctx.host;
 ```
 
-### 7. Screens (Optional): UI Definitions
+### 7. Service Locator (v0.3.1): Type-safe inter-plugin communication
+
+Plugins can register and consume shared services without hard dependency coupling:
+
+```typescript
+// Plugin A: Register a service
+setup(ctx) {
+  const myService = {
+    doSomething: () => console.log('Service in action!')
+  };
+  ctx.services.register('my-api', myService);
+}
+
+// Plugin B: Consume the service
+setup(ctx) {
+  // Wait for the providing plugin to initialize first!
+  const api = ctx.services.get<MyApiType>('my-api');
+  api.doSomething();
+}
+```
+
+### 8. Screens (Optional): UI Definitions
 
 Define screens that any UI framework can render:
 
