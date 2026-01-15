@@ -1,14 +1,14 @@
-# Skeleton Crew Runtime v0.3.1
+# Skeleton Crew Runtime v0.3.2
 
 **A minimal plugin runtime for building modular JavaScript applications.**
 
 Stop wiring up infrastructure. Start building features.
 
 ```bash
-npm install skeleton-crew-runtime@^0.3.1
+npm install skeleton-crew-runtime@^0.3.2
 ```
 
-## What's New in v0.3.1
+## What's New in v0.3.2
 
 ✅ **Service Locator API** - New `ctx.services` API for type-safe inter-plugin communication  
 ✅ **Config Validation** - Validate plugin configuration before setup runs with detailed error reporting  
@@ -16,7 +16,7 @@ npm install skeleton-crew-runtime@^0.3.1
 📝 **Logger Documentation** - Comprehensive guide to the built-in logging system  
 📊 **Optimized Telemetry** - Cleaner startup logs with consolidated plugin loading info
 
-**[→ Complete v0.3.1 Features](CHANGELOG.md#031---2026-01-16)**
+**[→ Complete v0.3.2 Features](CHANGELOG.md#032---2026-01-16)**
 
 ## What's New in v0.3.0
 
