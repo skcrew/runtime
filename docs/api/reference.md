@@ -1,15 +1,17 @@
-# Skeleton Crew Runtime - API Reference v0.2.0
+# Skeleton Crew Runtime - API Reference v0.3.2
 
-Complete API documentation for Skeleton Crew Runtime v0.2.0 including all TypeScript interfaces, classes, methods, and types with full generic support.
+Complete API documentation for Skeleton Crew Runtime v0.3.2 including all TypeScript interfaces, classes, methods, and types with full generic support.
 
-## What's New in v0.2.0+
+## What's New in v0.3.2+
 
+- **Service Locator (v0.3.1)** - Type-safe inter-plugin communication via `ctx.services`
+- **Config Validation (v0.3.0)** - Validate plugin configuration with detailed error reporting
+- **Introspection (v0.3.0)** - Enhanced runtime metadata and discovery API
+- **Plugin Discovery (v0.2.1)** - Automatic plugin loading from file paths and npm packages
+- **Dependency Resolution (v0.2.1)** - Automatic topological sorting for plugin initialization
 - **Generic Runtime/Context** - Full TypeScript generic support for type-safe configuration
 - **Sync Config Access** - Direct synchronous access to configuration via `ctx.config`
-- **Plugin Dependencies** - Explicit dependency resolution with validation
-- **Enhanced Logger** - Logger available on context for all plugins
-- **Plugin Discovery (v0.2.1)** - Automatic plugin loading from file paths and npm packages
-- **Performance Monitoring** - Optional performance monitoring and metrics collection
+
 
 ## Table of Contents
 
@@ -420,9 +422,34 @@ ctx.host.newKey = 'value'; // ❌ TypeError: Cannot add property
 
 **Security:** The returned object is frozen to prevent mutation. Plugins receive a shallow copy, ensuring isolation between plugins.
 
+##### `services`
+**[NEW v0.3.1]**
+
+Exposes the Service Locator API for type-safe inter-plugin communication.
+
+**Methods:**
+- `register<T>(name: string, service: T): void` - Registers a service
+- `get<T>(name: string): T` - Retrieves a service (throws if not found)
+- `has(name: string): boolean` - Checks if a service exists
+- `list(): string[]` - Lists all registered services
+
+**Example:**
+```typescript
+// Register a service
+ctx.services.register('my-api', {
+  doSomething: () => console.log('Hello')
+});
+
+// Consume a service
+if (ctx.services.has('my-api')) {
+  const api = ctx.services.get<MyApi>('my-api');
+  api.doSomething();
+}
+```
+
 ##### `introspect`
 
-Exposes the introspection API for querying runtime metadata.
+Exposes the introspection API for querying runtime metadata. **v0.3.0 adds enhanced metadata including `getMetadata()` override.**
 
 **Type:** `IntrospectionAPI`
 
@@ -910,25 +937,41 @@ Clears the UI provider. Used during shutdown.
 Defines a plugin that can extend the runtime.
 
 ```typescript
-interface PluginDefinition {
+interface PluginDefinition<TConfig = Record<string, unknown>> {
   name: string;
   version: string;
-  setup: (context: RuntimeContext) => void | Promise<void>;
-  dispose?: (context: RuntimeContext) => void | Promise<void>;
+  dependencies?: string[];
+  configKeys?: string[];
+  validateConfig?: (config: TConfig) => boolean | ConfigValidationResult | Promise<boolean | ConfigValidationResult>;
+  setup: (context: RuntimeContext<TConfig>) => void | Promise<void>;
+  dispose?: (context: RuntimeContext<TConfig>) => void | Promise<void>;
 }
 ```
 
 **Properties:**
 - `name` (required): Unique plugin identifier
 - `version` (required): Plugin version string
+- `dependencies` (optional): **[NEW v0.2.1]** Array of plugin names this plugin depends on (auto-sorted)
+- `configKeys` (optional): **[NEW v0.3.0]** Array of config keys this plugin uses (for documentation)
+- `validateConfig` (optional): **[NEW v0.3.0]** Function to validate configuration before setup
 - `setup` (required): Setup callback executed during initialization
 - `dispose` (optional): Cleanup callback executed during shutdown
 
 **Example:**
 ```typescript
-const myPlugin: PluginDefinition = {
+const myPlugin: PluginDefinition<MyConfig> = {
   name: "my-plugin",
   version: "1.0.0",
+  dependencies: ["auth"], // Wait for auth plugin
+  
+  // v0.3.0: Validate config
+  validateConfig(config) {
+    if (!config.apiKey) {
+      return { valid: false, errors: ["Missing API Key"] };
+    }
+    return true;
+  },
+
   setup(ctx) {
     ctx.screens.registerScreen({
       id: "my-screen",
@@ -1399,6 +1442,33 @@ const metadata = context.introspect.getMetadata();
 - Plugin discovery
 
 **Security Note:** All returned objects are deeply frozen to prevent mutation of internal runtime state.
+
+---
+
+### ConfigValidationResult
+
+**[NEW v0.3.0]**
+
+Result interface for the `validateConfig` plugin hook.
+
+```typescript
+interface ConfigValidationResult {
+  valid: boolean;
+  errors?: string[];
+}
+```
+
+**Properties:**
+- `valid` (required): Boolean indicating if configuration is valid
+- `errors` (optional): Array of error message strings if invalid
+
+**Example:**
+```typescript
+const result: ConfigValidationResult = {
+  valid: false,
+  errors: ["Missing API Key", "Invalid timeout value"]
+};
+```
 
 ---
 

@@ -1,4 +1,4 @@
-# Your First Plugin
+  # Your First Plugin
 
 **Build a working plugin in 15 minutes.**
 
@@ -14,17 +14,22 @@ A simple notification plugin that:
 Create `plugins/notifications.ts`:
 
 ```typescript
-import { PluginDefinition, RuntimeContext } from 'skeleton-crew-runtime';
+import type { PluginDefinition, RuntimeContext } from 'skeleton-crew-runtime';
 
-export const notificationsPlugin: PluginDefinition = {
+// Define your config
+interface AppConfig {
+  notifications: { enabled: boolean };
+}
+
+export const notificationsPlugin: PluginDefinition<AppConfig> = {
   name: 'notifications',
   version: '1.0.0',
   
-  setup(ctx: RuntimeContext) {
+  setup(ctx: RuntimeContext<AppConfig>) {
     // Register an action
-    ctx.actions.registerAction({
+    ctx.actions.registerAction<{ message: string; userId: string }, { success: boolean }>({
       id: 'notifications:send',
-      handler: async (params: { message: string; userId: string }) => {
+      handler: async (params, context) => { // context is fully typed
         console.log(`Sending notification to ${params.userId}: ${params.message}`);
         
         // Emit event
@@ -49,11 +54,20 @@ Create `index.ts`:
 import { Runtime } from 'skeleton-crew-runtime';
 import { notificationsPlugin } from './plugins/notifications.js';
 
+// Define config type
+interface AppConfig {
+  notifications: { enabled: boolean };
+}
+
 async function main() {
-  // Create runtime
-  const runtime = new Runtime();
+  // Create typed runtime
+  const runtime = new Runtime<AppConfig>({
+    config: {
+      notifications: { enabled: true }
+    }
+  });
   
-  // Register plugin
+  // Register plugin (before initialization)
   runtime.registerPlugin(notificationsPlugin);
   
   // Initialize
@@ -62,11 +76,14 @@ async function main() {
   // Get context
   const ctx = runtime.getContext();
   
-  // Use the plugin
-  const result = await ctx.actions.runAction('notifications:send', {
-    userId: '123',
-    message: 'Hello, World!'
-  });
+  // Use the plugin - fully typed!
+  const result = await ctx.actions.runAction<{ message: string; userId: string }, { success: boolean }>(
+    'notifications:send', 
+    {
+      userId: '123',
+      message: 'Hello, World!'
+    }
+  );
   
   console.log('Result:', result);
   
@@ -129,11 +146,11 @@ ctx.events.emit('notification:sent', {
 ### Add Event Listener
 
 ```typescript
-const loggerPlugin: PluginDefinition = {
+const loggerPlugin: PluginDefinition<AppConfig> = {
   name: 'logger',
   version: '1.0.0',
   setup(ctx) {
-    ctx.events.on('notification:sent', (data: any) => {
+    ctx.events.on('notification:sent', (data) => {
       console.log('Logger: Notification sent', data);
     });
   }

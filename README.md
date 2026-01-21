@@ -1,20 +1,25 @@
-# Skeleton Crew Runtime v0.3.2
+# Skeleton Crew Runtime v0.3.3
 
 **A minimal plugin runtime for building modular JavaScript applications.**
 
 Stop wiring up infrastructure. Start building features.
 
 ```bash
-npm install skeleton-crew-runtime@^0.3.2
+npm install skeleton-crew-runtime@^0.3.3
 ```
+
+## What's New in v0.3.3
+
+✅ **Browser Compatibility** - Fixed critical runtime crash in browsers by lazy-loading Node.js dependencies  
+📝 **Documentation** - Updated all examples to use proper TypeScript `import type` syntax  
+🔧 **Stability** - Improved test reliability for performance monitoring
+
+**[→ Complete v0.3.3 Features](CHANGELOG.md#033---2026-01-22)**
 
 ## What's New in v0.3.2
 
 ✅ **Service Locator API** - New `ctx.services` API for type-safe inter-plugin communication  
-✅ **Config Validation** - Validate plugin configuration before setup runs with detailed error reporting  
 📝 **Service Locator Guide** - New dedicated guide for using the Service Locator pattern  
-📝 **Logger Documentation** - Comprehensive guide to the built-in logging system  
-📊 **Optimized Telemetry** - Cleaner startup logs with consolidated plugin loading info
 
 **[→ Complete v0.3.2 Features](CHANGELOG.md#032---2026-01-16)**
 
@@ -91,7 +96,7 @@ const runtime = new Runtime<MyConfig>({
 ### Getting Started
 - **[Installation](docs/getting-started/installation.md)** - Install and setup
 - **[API Reference](docs/api/reference.md)** - Complete TypeScript API
-- **[Core Concepts](docs/getting-started/README.md)** - Understand the fundamentals
+- **[Core Concepts](docs/getting-started/core-concepts.md)** - Understand the fundamentals
 - **[Your First Plugin](docs/getting-started/your-first-plugin.md)** - Build your first feature
 - **[Logger Guide](docs/guides/logger-guide.md)** - Master the built-in logging system
 - **[Config Validation](docs/guides/config-validation.md)** - How to validate plugin configuration
@@ -147,7 +152,8 @@ You're building something modular and you might know these challenges:
 Here's a complete plugin that adds a feature to your app:
 
 ```typescript
-import { Runtime, PluginDefinition, RuntimeContext } from 'skeleton-crew-runtime';
+import { Runtime } from 'skeleton-crew-runtime';
+import type { PluginDefinition, RuntimeContext } from 'skeleton-crew-runtime';
 
 // v0.2.0: Define your config interface
 interface AppConfig {

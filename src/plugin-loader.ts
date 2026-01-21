@@ -1,4 +1,4 @@
-import glob from 'fast-glob';
+
 import { pathToFileURL } from 'url';
 import { resolve } from 'path';
 import type { PluginDefinition, Logger } from './types.js';
@@ -84,6 +84,7 @@ export class DirectoryPluginLoader {
 
     // Use cwd to ensure node_modules ignore only applies to subdirectories
     // fast-glob matches ignore patterns against absolute paths if the pattern is absolute
+    const glob = (await import('fast-glob')).default;
     const files = await glob('**/*.{js,mjs}', {
       cwd: normalizedPath,
       absolute: true,

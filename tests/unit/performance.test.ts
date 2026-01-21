@@ -24,7 +24,7 @@ describe('PerformanceMonitor', () => {
     it('should return no-op timer function', () => {
       const timer = monitor.startTimer('test-operation');
       expect(typeof timer).toBe('function');
-      
+
       const duration = timer();
       expect(duration).toBe(0);
     });
@@ -32,7 +32,7 @@ describe('PerformanceMonitor', () => {
     it('should handle multiple timers without interference', () => {
       const timer1 = monitor.startTimer('operation-1');
       const timer2 = monitor.startTimer('operation-2');
-      
+
       expect(timer1()).toBe(0);
       expect(timer2()).toBe(0);
     });
@@ -40,14 +40,14 @@ describe('PerformanceMonitor', () => {
     it('should ignore recordMetric calls', () => {
       monitor.recordMetric('test-metric', 123.45);
       monitor.recordMetric('another-metric', 67.89);
-      
+
       // Should not throw and should not store anything
       expect(() => monitor.recordMetric('test', 1)).not.toThrow();
     });
 
     it('should return empty metrics object', () => {
       monitor.recordMetric('test-metric', 100);
-      
+
       const metrics = monitor.getMetrics();
       expect(metrics).toEqual({});
       expect(Object.keys(metrics)).toHaveLength(0);
@@ -56,12 +56,12 @@ describe('PerformanceMonitor', () => {
     it('should have zero overhead for timer operations', () => {
       // Test that timer creation and execution is immediate
       const start = performance.now();
-      
+
       const timer = monitor.startTimer('performance-test');
       const result = timer();
-      
+
       const elapsed = performance.now() - start;
-      
+
       expect(result).toBe(0);
       expect(elapsed).toBeLessThan(1); // Should be nearly instantaneous
     });
@@ -83,12 +83,12 @@ describe('PerformanceMonitor', () => {
 
     it('should measure actual time duration', async () => {
       const timer = monitor.startTimer('async-operation');
-      
+
       // Simulate some work
       await new Promise(resolve => setTimeout(resolve, 10));
-      
+
       const duration = timer();
-      
+
       expect(duration).toBeGreaterThan(8); // Allow for timing variance
       expect(duration).toBeLessThan(50); // Should be reasonable
     });
@@ -96,9 +96,9 @@ describe('PerformanceMonitor', () => {
     it('should record metrics correctly', () => {
       monitor.recordMetric('test-metric', 123.45);
       monitor.recordMetric('another-metric', 67.89);
-      
+
       const metrics = monitor.getMetrics();
-      
+
       expect(metrics['test-metric']).toBe(123.45);
       expect(metrics['another-metric']).toBe(67.89);
     });
@@ -106,29 +106,29 @@ describe('PerformanceMonitor', () => {
     it('should overwrite existing metrics with same name', () => {
       monitor.recordMetric('test-metric', 100);
       monitor.recordMetric('test-metric', 200);
-      
+
       const metrics = monitor.getMetrics();
-      
+
       expect(metrics['test-metric']).toBe(200);
       expect(Object.keys(metrics)).toHaveLength(1);
     });
 
     it('should handle multiple concurrent timers', async () => {
       const timer1 = monitor.startTimer('operation-1');
-      
+
       await new Promise(resolve => setTimeout(resolve, 5));
-      
+
       const timer2 = monitor.startTimer('operation-2');
-      
+
       await new Promise(resolve => setTimeout(resolve, 5));
-      
+
       const duration1 = timer1();
       const duration2 = timer2();
-      
+
       expect(duration1).toBeGreaterThan(duration2);
       expect(duration1).toBeGreaterThan(8);
       expect(duration2).toBeGreaterThan(3);
-      
+
       const metrics = monitor.getMetrics();
       expect(metrics['operation-1']).toBe(duration1);
       expect(metrics['operation-2']).toBe(duration2);
@@ -136,11 +136,11 @@ describe('PerformanceMonitor', () => {
 
     it('should return timer function that records metric automatically', () => {
       const timer = monitor.startTimer('auto-record-test');
-      
+
       expect(monitor.getMetrics()['auto-record-test']).toBeUndefined();
-      
+
       const duration = timer();
-      
+
       expect(monitor.getMetrics()['auto-record-test']).toBe(duration);
     });
 
@@ -149,16 +149,16 @@ describe('PerformanceMonitor', () => {
       const timer1 = monitor.startTimer('');
       const duration1 = timer1();
       expect(typeof duration1).toBe('number');
-      
+
       // Special characters in labels
       const timer2 = monitor.startTimer('test:operation-with/special\\chars');
       const duration2 = timer2();
       expect(typeof duration2).toBe('number');
-      
+
       // Zero and negative values
       monitor.recordMetric('zero-metric', 0);
       monitor.recordMetric('negative-metric', -123.45);
-      
+
       const metrics = monitor.getMetrics();
       expect(metrics['zero-metric']).toBe(0);
       expect(metrics['negative-metric']).toBe(-123.45);
@@ -166,19 +166,19 @@ describe('PerformanceMonitor', () => {
 
     it('should return immutable metrics snapshot', () => {
       monitor.recordMetric('test-metric', 100);
-      
+
       const metrics1 = monitor.getMetrics();
       const metrics2 = monitor.getMetrics();
-      
+
       // Should be different objects
       expect(metrics1).not.toBe(metrics2);
-      
+
       // But with same content
       expect(metrics1).toEqual(metrics2);
-      
+
       // Modifying returned object should not affect internal state
       metrics1['new-metric'] = 999;
-      
+
       const metrics3 = monitor.getMetrics();
       expect(metrics3['new-metric']).toBeUndefined();
     });
@@ -219,14 +219,14 @@ describe('PerformanceMonitor', () => {
   describe('Performance Characteristics', () => {
     it('should have minimal memory footprint for NoOpPerformanceMonitor', () => {
       const monitors = Array.from({ length: 1000 }, () => new NoOpPerformanceMonitor());
-      
+
       // Should not consume significant memory
       monitors.forEach(monitor => {
         monitor.recordMetric('test', 123);
         const timer = monitor.startTimer('test');
         timer();
       });
-      
+
       // All should return empty metrics
       monitors.forEach(monitor => {
         expect(monitor.getMetrics()).toEqual({});
@@ -235,37 +235,38 @@ describe('PerformanceMonitor', () => {
 
     it('should have reasonable memory usage for SimplePerformanceMonitor', () => {
       const monitor = new SimplePerformanceMonitor();
-      
+
       // Add many metrics
       for (let i = 0; i < 1000; i++) {
         monitor.recordMetric(`metric-${i}`, i);
       }
-      
+
       const metrics = monitor.getMetrics();
       expect(Object.keys(metrics)).toHaveLength(1000);
-      
+
       // Should be able to retrieve all metrics
       for (let i = 0; i < 1000; i++) {
         expect(metrics[`metric-${i}`]).toBe(i);
       }
     });
 
-    it('should have consistent timing accuracy', async () => {
+    it('should have consistent timing accuracy', () => {
+      vi.useFakeTimers();
       const monitor = new SimplePerformanceMonitor();
       const durations: number[] = [];
-      
-      // Measure multiple similar operations
+
+      // Measure multiple similar operations using deterministic time
       for (let i = 0; i < 10; i++) {
         const timer = monitor.startTimer(`test-${i}`);
-        await new Promise(resolve => setTimeout(resolve, 10));
+        vi.advanceTimersByTime(10);
         durations.push(timer());
       }
-      
-      // All durations should be reasonably similar (within 50% variance)
-      const avg = durations.reduce((sum, d) => sum + d, 0) / durations.length;
+
+      vi.useRealTimers();
+
+      // With fake timers, durations should be exact
       durations.forEach(duration => {
-        expect(duration).toBeGreaterThan(avg * 0.5);
-        expect(duration).toBeLessThan(avg * 1.5);
+        expect(duration).toBe(10);
       });
     });
   });

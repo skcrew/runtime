@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.3] - 2026-01-22
+
+### Fixed
+- **Browser Compatibility**: Resolved a critical runtime crash in browser environments by converting `fast-glob` to a dynamic import. This prevents `ReferenceError: process is not defined` and ensures the runtime assumes a browser context when Node.js APIs are unavailable.
+- **Test Stability**: Fixed flaky performance monitoring tests by using deterministic fake timers instead of relying on `setTimeout` and `performance.now`.
+
+### Documentation
+- **TypeScript Imports**: Updated all documentation examples to use strict `import type` syntax for type-only imports, fixing issues with `isolatedModules` and strict TS configurations.
+- **Broken Links**: Fixed broken references to `core-concepts.md` in the README and getting started guides.
+- **Code Examples**: Modernized "Your First Plugin" guide with generic type examples (`Runtime<AppConfig>`) for improved type safety.
+
 ## [0.3.2] - 2026-01-16
 
 ### Documentation
@@ -134,7 +145,7 @@ Based on user feedback, the following improvements are planned for future releas
 ## [0.1.5] - 2024-01-01
 
 ### Added
-- Core plugin system with registration and lifecycle management
+- **Core plugin system with registration and lifecycle management
 - Screen registry for UI-agnostic screen definitions
 - Action engine for business logic execution
 - Event bus for plugin communication
