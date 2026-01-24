@@ -1,6 +1,6 @@
-# Migration Guide: Adopting Skeleton Crew Runtime v0.3.3
+# Migration Guide: Adopting Skeleton Crew Runtime v0.3.4
 
-This guide helps you migrate existing applications to Skeleton Crew Runtime v0.3.3. **v0.3.x makes the runtime production-ready with Service Locator, Config Validation, and Plugin Discovery.**
+This guide helps you migrate existing applications to Skeleton Crew Runtime v0.3.4. **v0.3.x makes the runtime production-ready with Service Locator, Config Validation, and Plugin Discovery.**
 
 ## Table of Contents
 
@@ -13,6 +13,21 @@ This guide helps you migrate existing applications to Skeleton Crew Runtime v0.3
 ---
 
 ## What's New in v0.3.x
+
+### 🌐 Browser Support (v0.3.4)
+Native browser compatibility is now seamless.
+
+- **No Polyfills**: You no longer need to polyfill `fs` or `path` in your bundler (Vite, Webpack).
+- **Automatic resolution**: `import { Runtime } ...` automatically pulls the browser-optimized build.
+- **Note**: `DirectoryPluginLoader` is **NOT** available in the browser build (as browsers have no file system).
+
+```typescript
+// Browser Usage
+import { Runtime } from 'skeleton-crew-runtime';
+
+// Works out of the box!
+const runtime = new Runtime({ ... }); 
+```
 
 ### 📡 Service Locator (v0.3.1)
 Type-safe inter-plugin communication without tight coupling.

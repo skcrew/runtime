@@ -7,14 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.3.4] - 2026-01-24
 
-### Added
-- 
+### Fixed
+- **Browser Compatibility**: Introduced dedicated browser entry point (`index.browser.ts`) to eliminate Node.js dependency errors (`fs`, `path`) in bundlers like Vite.
+- **Package Exports**: Updated `package.json` with conditional exports to automatically serve the correct entry point for Browser vs Node.js environments.
 
 ### Changed
-- 
+- **Architecture**: Refactored `Runtime` class to use dependency injection for `PluginLoader`. This completely decouples Node.js file system logic from the core runtime.
+- **Node Runtime**: The default export for Node.js (`src/index.ts`) now automatically injects `DirectoryPluginLoader` to maintain backward compatibility.
 
-### Fixed
-- 
+### Added
+- **Types**: New `PluginLoader` interface for implementing custom plugin discovery strategies.
 
 ## [0.3.3] - 2026-01-22
 
