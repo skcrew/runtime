@@ -1,13 +1,13 @@
 
 import { pathToFileURL } from 'url';
 import { resolve } from 'path';
-import type { PluginDefinition, Logger } from './types.js';
+import type { PluginDefinition, Logger, PluginLoader } from './types.js';
 
 /**
  * Plugin loader for automatic discovery and loading of plugins
  * Supports both file paths and npm packages
  */
-export class DirectoryPluginLoader {
+export class DirectoryPluginLoader implements PluginLoader {
   constructor(private logger: Logger) { }
 
   /**

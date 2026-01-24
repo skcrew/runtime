@@ -1,7 +1,26 @@
 // Core Runtime entry point
 // This file will export the main Runtime class and public types
 
+import { Runtime as CoreRuntime } from './runtime.js';
+import { type RuntimeOptions, ConsoleLogger } from './types.js';
+import { DirectoryPluginLoader } from './plugin-loader.js';
+
 export * from './runtime.js';
+export { CoreRuntime };
+
+/**
+ * Node.js Runtime implementation
+ * Automatically configures DirectoryPluginLoader for file system access
+ */
+export class Runtime<TConfig = Record<string, unknown>> extends CoreRuntime<TConfig> {
+  constructor(options?: RuntimeOptions<TConfig>) {
+    super({
+      ...options,
+      pluginLoader: options?.pluginLoader ?? new DirectoryPluginLoader(options?.logger ?? new ConsoleLogger())
+    });
+  }
+}
+
 export { ScreenRegistry } from './screen-registry.js';
 // Exclude Runtime from types export to avoid conflict with runtime.js export
 export {

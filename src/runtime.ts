@@ -1,4 +1,4 @@
-import type { RuntimeContext, UIProvider, PluginDefinition, RuntimeOptions, Logger } from './types.js';
+import type { RuntimeContext, UIProvider, PluginDefinition, RuntimeOptions, Logger, PluginLoader } from './types.js';
 import { ConsoleLogger, RuntimeState } from './types.js';
 import { PluginRegistry } from './plugin-registry.js';
 import { ScreenRegistry } from './screen-registry.js';
@@ -7,7 +7,6 @@ import { EventBus } from './event-bus.js';
 import { UIBridge } from './ui-bridge.js';
 import { RuntimeContextImpl } from './runtime-context.js';
 import { createPerformanceMonitor, type PerformanceMonitor } from './performance.js';
-import { DirectoryPluginLoader } from './plugin-loader.js';
 import { ServiceRegistry } from './service-registry.js';
 
 /**
@@ -31,7 +30,7 @@ export class Runtime<TConfig = Record<string, unknown>> {
   private hostContext: Record<string, unknown>;
   private config: TConfig; // [NEW] Stored config
   private performanceMonitor: PerformanceMonitor;
-  private pluginLoader: DirectoryPluginLoader;
+  private pluginLoader?: PluginLoader;
   private pluginPaths: string[];
   private pluginPackages: string[];
 
@@ -55,7 +54,7 @@ export class Runtime<TConfig = Record<string, unknown>> {
     this.performanceMonitor = createPerformanceMonitor(options?.enablePerformanceMonitoring ?? false);
 
     // Plugin discovery setup
-    this.pluginLoader = new DirectoryPluginLoader(this.logger);
+    this.pluginLoader = options?.pluginLoader;
     this.pluginPaths = options?.pluginPaths ?? [];
     this.pluginPackages = options?.pluginPackages ?? [];
 
@@ -140,15 +139,19 @@ export class Runtime<TConfig = Record<string, unknown>> {
 
       // Load plugins from discovery paths/packages (v0.2.1)
       if (this.pluginPaths.length > 0 || this.pluginPackages.length > 0) {
-        this.logger.info('Loading plugins via DirectoryPluginLoader...');
-        const discoveredPlugins = await this.pluginLoader.loadPlugins(
-          this.pluginPaths,
-          this.pluginPackages
-        );
+        if (!this.pluginLoader) {
+          this.logger.warn('Plugin paths/packages specified but no plugin loader configured. Skipping discovery.');
+        } else {
+          this.logger.info('Loading plugins via configured PluginLoader...');
+          const discoveredPlugins = await this.pluginLoader.loadPlugins(
+            this.pluginPaths,
+            this.pluginPackages
+          );
 
-        // Register discovered plugins (cast to correct type for compatibility)
-        for (const plugin of discoveredPlugins) {
-          this.plugins.registerPlugin(plugin as PluginDefinition<TConfig>);
+          // Register discovered plugins (cast to correct type for compatibility)
+          for (const plugin of discoveredPlugins) {
+            this.plugins.registerPlugin(plugin as PluginDefinition<TConfig>);
+          }
         }
       }
 

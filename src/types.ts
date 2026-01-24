@@ -147,6 +147,18 @@ export interface PluginDefinition<TConfig = Record<string, unknown>> {
   dispose?: (context: RuntimeContext<TConfig>) => void | Promise<void>;
 }
 
+/**
+ * Interface for loading plugins from various sources (files, packages, etc.)
+ * Decouples Runtime from specific loading strategies (like Node.js file system)
+ * @see Requirements 1.3, 1.4
+ */
+export interface PluginLoader {
+  loadPlugins(
+    pluginPaths: string[],
+    pluginPackages: string[]
+  ): Promise<PluginDefinition[]>;
+}
+
 export interface ScreenDefinition {
   id: string;
   title: string;
@@ -287,6 +299,7 @@ export interface RuntimeOptions<TConfig = Record<string, unknown>> {
   // Plugin Discovery Options (v0.2.1)
   pluginPaths?: string[]; // Paths to plugin files or directories
   pluginPackages?: string[]; // npm package names to load as plugins
+  pluginLoader?: PluginLoader; // [NEW] Optional plugin loader for discovery
 }
 
 /**
