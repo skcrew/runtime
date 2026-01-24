@@ -93,7 +93,34 @@ try {
     console.log(`📝 Version ${version} already set in package.json`);
   }
 
-  // 5. Run tests
+  // 5. Update CHANGELOG.md
+  console.log('📝 Checking CHANGELOG.md...');
+  const changelogPath = join(process.cwd(), 'CHANGELOG.md');
+  const changelogContent = readFileSync(changelogPath, 'utf8');
+  const date = new Date().toISOString().split('T')[0];
+  const newHeader = `## [${version}] - ${date}`;
+
+  if (changelogContent.includes(newHeader)) {
+    console.log(`📝 Changelog entry for ${version} already exists`);
+  } else {
+    console.log(`📝 Adding new changelog entry for ${version}...`);
+    // Find the first release header (## [x.y.z]) to insert before it
+    const firstEntryIndex = changelogContent.search(/^## \[\d+\.\d+\.\d+\]/m);
+
+    if (firstEntryIndex !== -1) {
+      if (!isDryRun) {
+        const newContent = changelogContent.slice(0, firstEntryIndex) +
+          `${newHeader}\n\n### Added\n- \n\n### Changed\n- \n\n### Fixed\n- \n\n` +
+          changelogContent.slice(firstEntryIndex);
+        writeFile(changelogPath, newContent);
+      }
+      versionChanged = true; // Ensure we commit even if only changelog changed (though usually pkg json changes too)
+    } else {
+      console.warn('⚠️  Could not find existing changelog entries to prepend to');
+    }
+  }
+
+  // 6. Run tests
   console.log('🧪 Running tests...');
   try {
     execute('npm test', { stdio: isDryRun ? 'pipe' : 'inherit' });
@@ -116,29 +143,29 @@ try {
     throw error;
   }
 
-  // 6. Build
+  // 7. Build
   console.log('🔨 Building...');
   execute('npm run build', { stdio: isDryRun ? 'pipe' : 'inherit' });
 
-  // 7. Commit version bump (only if version changed)
+  // 8. Commit version bump (only if version changed)
   if (versionChanged) {
     console.log('💾 Committing version bump...');
-    execute(`git add package.json`);
+    execute(`git add package.json CHANGELOG.md`);
     execute(`git commit -m "chore: bump version to ${version}"`);
   } else {
     console.log('💾 No version bump needed');
   }
 
-  // 8. Create and push tag
+  // 9. Create and push tag
   console.log(`🏷️  Creating tag ${tag}...`);
   execute(`git tag ${tag}`);
 
-  // 9. Push to origin (skcrew)
+  // 10. Push to origin (skcrew)
   console.log('📤 Pushing to origin...');
   execute('git push origin main');
   execute(`git push origin refs/tags/${tag}`);
 
-  // 10. Also push to backup
+  // 11. Also push to backup
   console.log('📤 Pushing to backup...');
   execute('git push backup main');
   execute(`git push backup refs/tags/${tag}`);
