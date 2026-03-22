@@ -1,3 +1,6 @@
+---
+inclusion: manual
+---
 # Migration Support Implementation Guide
 
 ## Overview

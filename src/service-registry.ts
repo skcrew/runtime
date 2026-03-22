@@ -61,6 +61,18 @@ export class ServiceRegistry {
     }
 
     /**
+     * Unregisters a service by name. Intended for use in plugin dispose.
+     * No-op if the service is not registered.
+     * @param name - Unique service identifier
+     */
+    unregister(name: string): void {
+        if (this.services.has(name)) {
+            this.services.delete(name);
+            this.logger.debug(`Service "${name}" unregistered`);
+        }
+    }
+
+    /**
      * Clears all registered services.
      */
     clear(): void {

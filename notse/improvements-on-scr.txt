@@ -1,0 +1,152 @@
+Core Improvements to SCR
+
+These improvements are not only for your product—they make SCR a much stronger runtime for everyone.
+
+Improvement 1 — Execution Sandbox
+
+Introduce isolated workers for actions.
+
+Architecture:
+
+runtime
+   ↓
+worker pool
+   ↓
+plugin execution
+
+Possible implementations:
+
+Worker Threads (best MVP)
+
+Node's worker_threads isolate execution.
+
+Pros:
+
+• simple
+• fast
+• minimal architecture changes
+
+Cons:
+
+• weaker isolation than containers
+
+WebAssembly sandbox
+
+Plugins compiled to Wasm.
+
+Pros:
+
+• memory limits
+• deterministic
+• strong isolation
+
+Cons:
+
+• harder developer experience
+
+Micro-VMs (long-term)
+
+Example technology:
+
+Firecracker
+
+Pros:
+
+• strongest isolation
+
+Cons:
+
+• complex infrastructure
+
+Recommendation
+
+Start with:
+
+worker thread sandbox
+Improvement 2 — Action Timeouts
+
+Every action should support:
+
+timeout
+memory limit
+retry
+
+Example config:
+
+action: scrape_page
+timeout: 5000ms
+retry: 2
+
+Benefits:
+
+• protects runtime
+• prevents infinite loops
+
+Improvement 3 — Built-in Execution Recorder
+
+Add trace recording to SCR core.
+
+Each action stores:
+
+run_id
+step
+input
+output
+status
+duration
+
+Benefits:
+
+• debugging
+• observability
+• analytics
+
+This becomes the foundation for:
+
+time-travel debugging
+Improvement 4 — Workflow Engine
+
+Add simple workflow support:
+
+workflow = [
+  scrape,
+  parse,
+  store
+]
+
+Executor:
+
+run workflow step by step
+
+Future features:
+
+• conditional branching
+• parallel steps
+• retries
+
+Improvement 5 — Adapter Layer
+
+Actions should access external resources only via adapters:
+
+ctx.adapters.http
+ctx.adapters.storage
+ctx.adapters.database
+
+Benefits:
+
+• security
+• deterministic behavior
+• easier testing
+
+Improvement 6 — Trace Storage Optimization
+
+To prevent storage explosion:
+
+Store traces like:
+
+input_hash
+output_hash
+
+Payloads stored in blob storage.
+
+Compression also helps.

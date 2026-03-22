@@ -1,3 +1,7 @@
+---
+inclusion: manual
+---
+
 # Product Overview
 
 Skeleton Crew Runtime is a minimal, plugin-based application runtime for building internal tools and modular applications.

@@ -142,9 +142,10 @@ describe('PluginRegistry', () => {
       await registry.executeSetup(context);
 
       expect(callOrder).toEqual([1, 2, 3]);
-      expect(plugin1.setup).toHaveBeenCalledWith(context);
-      expect(plugin2.setup).toHaveBeenCalledWith(context);
-      expect(plugin3.setup).toHaveBeenCalledWith(context);
+      // Each plugin receives a tracked proxy that wraps the real context
+      expect(plugin1.setup).toHaveBeenCalledOnce();
+      expect(plugin2.setup).toHaveBeenCalledOnce();
+      expect(plugin3.setup).toHaveBeenCalledOnce();
     });
 
     it('should support async setup callbacks', async () => {
@@ -498,11 +499,11 @@ describe('PluginRegistry', () => {
 
       // Verify logger was called with errors
       expect(logger.error).toHaveBeenCalledWith(
-        'Plugin "plugin-3" dispose failed',
+        'Plugin "plugin-3" dispose failed during teardown',
         expect.any(Error)
       );
       expect(logger.error).toHaveBeenCalledWith(
-        'Plugin "plugin-1" dispose failed',
+        'Plugin "plugin-1" dispose failed during teardown',
         expect.any(Error)
       );
       expect(plugin2.dispose).toHaveBeenCalled();

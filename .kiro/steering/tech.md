@@ -1,3 +1,7 @@
+---
+inclusion: manual
+---
+
 # Technology Stack
 
 ## Language & Build System

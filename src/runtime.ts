@@ -1,6 +1,6 @@
 import type { RuntimeContext, UIProvider, PluginDefinition, RuntimeOptions, Logger, PluginLoader } from './types.js';
-import { ConsoleLogger, RuntimeState } from './types.js';
-import { PluginRegistry } from './plugin-registry.js';
+import { ConsoleLogger, RuntimeState, PluginSwapError } from './types.js';
+import { PluginRegistry, isNewerVersion } from './plugin-registry.js';
 import { ScreenRegistry } from './screen-registry.js';
 import { ActionEngine } from './action-engine.js';
 import { EventBus } from './event-bus.js';
@@ -8,6 +8,7 @@ import { UIBridge } from './ui-bridge.js';
 import { RuntimeContextImpl } from './runtime-context.js';
 import { createPerformanceMonitor, type PerformanceMonitor } from './performance.js';
 import { ServiceRegistry } from './service-registry.js';
+import { ExecutionRecorderImpl } from './execution-recorder.js';
 
 /**
  * Runtime is the main orchestrator that coordinates all subsystems.
@@ -164,8 +165,9 @@ export class Runtime<TConfig = Record<string, unknown>> {
       // 2. Create ScreenRegistry (Requirement 2.2)
       this.screens = new ScreenRegistry(this.logger);
 
-      // 3. Create ActionEngine (Requirement 2.3)
-      this.actions = new ActionEngine<TConfig>(this.logger);
+      // 3. Create ExecutionRecorder + ActionEngine (recorder wired at construction)
+      const recorder = new ExecutionRecorderImpl();
+      this.actions = new ActionEngine<TConfig>(this.logger, (entry) => recorder.record(entry));
 
       // 4. Create EventBus (Requirement 2.4)
       this.events = new EventBus(this.logger);
@@ -185,13 +187,14 @@ export class Runtime<TConfig = Record<string, unknown>> {
         this.services,
         this,
         this.hostContext,
-        this.logger
+        this.logger,
+        recorder
       );
 
-      // 7. Pass RuntimeContext to ActionEngine (Requirement 9.9)
+      // 8. Pass RuntimeContext to ActionEngine (Requirement 9.9)
       this.actions.setContext(this.context);
 
-      // 8. Execute plugin setup callbacks in registration order (Requirements 2.5, 2.6, 3.1)
+      // 9. Execute plugin setup callbacks in registration order (Requirements 2.5, 2.6, 3.1)
       // This will abort on first plugin setup failure (Requirement 3.1)
       await this.plugins.executeSetup(this.context);
 
@@ -348,6 +351,68 @@ export class Runtime<TConfig = Record<string, unknown>> {
     // Delegate to UIBridge to render the screen
     return this.ui.renderScreen(screen);
   }
+  /**
+   * Hot-swaps a running plugin with a new version.
+   * Requires the new plugin to have the same name and a strictly higher semver version.
+   * Sequence: validate → dispose old → tear down resources → register new → setup new → emit plugin:swapped.
+   * @throws PluginSwapError if preconditions are not met.
+   */
+  async swapPlugin(newPlugin: PluginDefinition<TConfig>): Promise<void> {
+    if (!this.initialized) {
+      throw new PluginSwapError(newPlugin.name, 'runtime is not initialized');
+    }
+
+    const existing = this.plugins.getPlugin(newPlugin.name);
+    if (!existing) {
+      throw new PluginSwapError(newPlugin.name, 'plugin is not registered');
+    }
+    if (!this.plugins.isInitialized(newPlugin.name)) {
+      throw new PluginSwapError(newPlugin.name, 'plugin is not initialized');
+    }
+    if (!isNewerVersion(existing.version, newPlugin.version)) {
+      throw new PluginSwapError(
+        newPlugin.name,
+        `new version "${newPlugin.version}" must be strictly greater than current "${existing.version}"`
+      );
+    }
+
+    this.logger.info(`[hot-swap] Swapping plugin "${newPlugin.name}" ${existing.version} → ${newPlugin.version}`);
+
+    // 1. Dispose old plugin and tear down all its registered resources
+    await this.plugins.teardownPlugin(newPlugin.name, this.context);
+
+    // 2. Replace the plugin definition in the registry
+    this.plugins.replacePlugin(newPlugin);
+
+    // 3. Config validation for new plugin
+    if (newPlugin.validateConfig) {
+      const result = await newPlugin.validateConfig(this.context.config);
+      const valid = typeof result === 'boolean' ? result : result.valid;
+      if (!valid) {
+        const errors = typeof result === 'object' && result.errors ? result.errors.join(', ') : 'config validation failed';
+        throw new PluginSwapError(newPlugin.name, `config validation failed: ${errors}`);
+      }
+    }
+
+    // 4. Run new plugin setup with resource tracking
+    try {
+      await this.plugins.setupSinglePlugin(newPlugin, this.context);
+    } catch (err) {
+      // Rollback: tear down whatever the new plugin registered before failing
+      await this.plugins.teardownPlugin(newPlugin.name, this.context);
+      throw new PluginSwapError(newPlugin.name, `new plugin setup failed: ${(err as Error).message}`);
+    }
+
+    // 5. Emit event
+    this.events.emit('plugin:swapped', {
+      name: newPlugin.name,
+      previousVersion: existing.version,
+      newVersion: newPlugin.version
+    });
+
+    this.logger.info(`[hot-swap] Plugin "${newPlugin.name}" successfully swapped to ${newPlugin.version}`);
+  }
+
   /**
    * Returns the current runtime configuration.
    * @returns Readonly config object

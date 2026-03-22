@@ -488,14 +488,15 @@ describe('Runtime initialization integration tests', () => {
       
       await runtime.initialize();
       
-      // All plugins should receive the same context instance
+      // Each plugin receives a tracked proxy wrapping the same underlying context.
+      // Verify all proxies share the same runtime state.
       expect(contexts.length).toBe(3);
-      expect(contexts[0]).toBe(contexts[1]);
-      expect(contexts[1]).toBe(contexts[2]);
+      expect(contexts[0].config).toEqual(contexts[1].config);
+      expect(contexts[1].config).toEqual(contexts[2].config);
       
-      // Context should match the one from getContext()
+      // getContext() returns the real context; proxies delegate to the same registries
       const context = runtime.getContext();
-      expect(contexts[0]).toBe(context);
+      expect(contexts[0].introspect.listPlugins()).toEqual(context.introspect.listPlugins());
     });
   });
 

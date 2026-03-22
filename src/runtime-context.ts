@@ -1,10 +1,11 @@
-import type { RuntimeContext, ScreenDefinition, ActionDefinition, PluginDefinition, IntrospectionAPI, Logger } from './types.js';
+import type { RuntimeContext, ScreenDefinition, ActionDefinition, PluginDefinition, IntrospectionAPI, Logger, ExecutionRecorder } from './types.js';
 import type { ScreenRegistry } from './screen-registry.js';
 import type { ActionEngine } from './action-engine.js';
 import type { PluginRegistry } from './plugin-registry.js';
 import type { EventBus } from './event-bus.js';
 import type { Runtime } from './runtime.js';
 import type { ServiceRegistry } from './service-registry.js';
+import { ExecutionRecorderImpl } from './execution-recorder.js';
 
 /**
  * Deep freeze utility - recursively freezes an object and all nested objects.
@@ -54,6 +55,7 @@ export class RuntimeContextImpl<TConfig = Record<string, unknown>> implements Ru
   private frozenHostContext: Readonly<Record<string, unknown>>;
   private introspectionAPI: IntrospectionAPI;
   private loggerInstance: Logger;
+  private executionRecorder: ExecutionRecorderImpl;
 
   // Cache API objects to prevent memory leaks from repeated access
   private cachedScreensAPI: any;
@@ -70,7 +72,8 @@ export class RuntimeContextImpl<TConfig = Record<string, unknown>> implements Ru
     serviceRegistry: ServiceRegistry,
     runtime: Runtime<TConfig>,
     hostContext: Record<string, unknown>,
-    logger: Logger
+    logger: Logger,
+    recorder?: ExecutionRecorderImpl
   ) {
     this.screenRegistry = screenRegistry;
     this.actionEngine = actionEngine;
@@ -79,9 +82,10 @@ export class RuntimeContextImpl<TConfig = Record<string, unknown>> implements Ru
     this.serviceRegistry = serviceRegistry;
     this.runtime = runtime;
     this.loggerInstance = logger;
-    // Cache the frozen copy to avoid creating new objects on every access
-    // This prevents memory leaks when host context is accessed repeatedly
     this.frozenHostContext = Object.freeze({ ...hostContext });
+
+    // Use injected recorder or create a standalone one (e.g. in tests)
+    this.executionRecorder = recorder ?? new ExecutionRecorderImpl();
 
     // Cache the introspection API to avoid creating new objects on every access
     // This prevents memory leaks when introspection is used repeatedly
@@ -132,6 +136,9 @@ export class RuntimeContextImpl<TConfig = Record<string, unknown>> implements Ru
       },
       runAction: <P = unknown, R = unknown>(id: string, params?: P): Promise<R> => {
         return this.actionEngine.runAction(id, params);
+      },
+      hasAction: (id: string): boolean => {
+        return this.actionEngine.hasAction(id);
       }
     };
   }
@@ -157,6 +164,9 @@ export class RuntimeContextImpl<TConfig = Record<string, unknown>> implements Ru
       },
       getInitializedPlugins: (): string[] => {
         return this.pluginRegistry.getInitializedPlugins();
+      },
+      isInitialized: (name: string): boolean => {
+        return this.pluginRegistry.isInitialized(name);
       }
     };
   }
@@ -204,6 +214,9 @@ export class RuntimeContextImpl<TConfig = Record<string, unknown>> implements Ru
       },
       list: (): string[] => {
         return this.serviceRegistry.list();
+      },
+      unregister: (name: string): void => {
+        this.serviceRegistry.unregister(name);
       }
     };
   }
@@ -221,6 +234,21 @@ export class RuntimeContextImpl<TConfig = Record<string, unknown>> implements Ru
    */
   get logger(): Logger {
     return this.loggerInstance;
+  }
+
+  /**
+   * Execution recorder — observe every action run.
+   */
+  get trace(): ExecutionRecorder {
+    return this.executionRecorder;
+  }
+
+  /**
+   * Returns the internal recorder so Runtime can wire it to ActionEngine.
+   * Not part of the public RuntimeContext interface.
+   */
+  getRecorder(): ExecutionRecorderImpl {
+    return this.executionRecorder;
   }
 
   /**
@@ -275,10 +303,13 @@ export class RuntimeContextImpl<TConfig = Record<string, unknown>> implements Ru
         const action = this.actionEngine.getAction(id);
         if (!action) return null;
 
-        // Extract only id and timeout (exclude handler function)
+        // Extract only id, timeout, retry, memoryLimitMb, description (exclude handler function)
         const metadata = {
           id: action.id,
-          timeout: action.timeout
+          timeout: action.timeout,
+          retry: action.retry,
+          memoryLimitMb: action.memoryLimitMb,
+          description: action.description
         };
 
         // Deep freeze the metadata
@@ -301,10 +332,11 @@ export class RuntimeContextImpl<TConfig = Record<string, unknown>> implements Ru
         const plugin = this.pluginRegistry.getPlugin(name);
         if (!plugin) return null;
 
-        // Extract only name and version (exclude setup/dispose functions)
+        // Extract only name, version, description (exclude setup/dispose functions)
         const metadata = {
           name: plugin.name,
-          version: plugin.version
+          version: plugin.version,
+          description: plugin.description
         };
 
         // Deep freeze the metadata

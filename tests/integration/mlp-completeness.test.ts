@@ -635,8 +635,12 @@ describe('MLP Feature Completeness Tests', () => {
       
       // All contexts should be the same instance
       expect(contexts).toHaveLength(3);
-      expect(contexts[0]).toBe(contexts[1]);
-      expect(contexts[1]).toBe(contexts[2]);
+      // Each plugin receives a tracked proxy; verify they all share the same underlying state
+      expect(contexts[0].config).toEqual(contexts[1].config);
+      expect(contexts[0].introspect.listPlugins()).toEqual(contexts[1].introspect.listPlugins());
+      // getContext() returns the real context; proxies delegate to the same underlying registries
+      expect(contexts[2].introspect.listPlugins()).toContain('plugin-1');
+      expect(contexts[2].introspect.listPlugins()).toContain('plugin-2');
     });
 
     it('should pass same RuntimeContext to action handlers', async () => {
@@ -677,9 +681,10 @@ describe('MLP Feature Completeness Tests', () => {
       
       // All contexts should be the same instance
       expect(contexts).toHaveLength(4);
-      expect(contexts[0]).toBe(contexts[1]);
-      expect(contexts[1]).toBe(contexts[2]);
-      expect(contexts[2]).toBe(contexts[3]);
+      // Proxies and real context all delegate to the same underlying state
+      expect(contexts[0].config).toEqual(contexts[1].config);
+      expect(contexts[1].config).toEqual(contexts[2].config);
+      expect(contexts[2].config).toEqual(contexts[3].config);
     });
 
     it('should maintain stable context references across subsystem operations', async () => {

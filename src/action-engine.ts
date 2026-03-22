@@ -1,5 +1,30 @@
-import type { ActionDefinition, RuntimeContext, Logger } from './types.js';
-import { ValidationError, DuplicateRegistrationError, ActionTimeoutError, ActionExecutionError } from './types.js';
+import type { ActionDefinition, RuntimeContext, Logger, TraceEntry, TraceStatus } from './types.js';
+import { ValidationError, DuplicateRegistrationError, ActionTimeoutError, ActionExecutionError, ActionMemoryError } from './types.js';
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+/** Returns heap used in MB, or null in environments without process.memoryUsage */
+function heapMb(): number | null {
+  try {
+    return process.memoryUsage().heapUsed / 1_048_576;
+  } catch {
+    return null;
+  }
+}
+
+/** Exponential backoff: attempt 1 → 100ms, 2 → 200ms, 3 → 400ms … */
+function backoffMs(attempt: number): number {
+  return Math.pow(2, attempt - 1) * 100;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+let runCounter = 0;
+function nextRunId(): string {
+  return `run_${Date.now()}_${++runCounter}`;
+}
 
 /**
  * ActionEngine subsystem for storing and executing actions.
@@ -11,11 +36,13 @@ export class ActionEngine<TConfig = Record<string, unknown>> {
   private actions: Map<string, ActionDefinition<any, any, TConfig>>;
   private context: RuntimeContext<TConfig> | null;
   private logger: Logger;
+  private onTrace: ((entry: TraceEntry) => void) | null;
 
-  constructor(logger: Logger) {
+  constructor(logger: Logger, onTrace?: (entry: TraceEntry) => void) {
     this.actions = new Map();
     this.context = null;
     this.logger = logger;
+    this.onTrace = onTrace ?? null;
   }
 
   /**
@@ -86,7 +113,6 @@ export class ActionEngine<TConfig = Record<string, unknown>> {
     // Check if action exists (Requirements 6.5, 16.4)
     const action = this.actions.get(id);
     if (!action) {
-      // Extract plugin name from action ID for better error message
       const pluginName = id.includes(':') ? id.split(':')[0] : 'unknown';
       throw new Error(
         `Action "${id}" not found. ` +
@@ -95,31 +121,81 @@ export class ActionEngine<TConfig = Record<string, unknown>> {
       );
     }
 
-    // Ensure context is available (Requirement 6.6)
     if (!this.context) {
       throw new Error('RuntimeContext not set in ActionEngine');
     }
 
-    try {
-      // Handle timeout if specified (Requirements 11.1, 11.2, 11.3, 11.4, 11.5)
-      if (action.timeout) {
-        const result = await this.runWithTimeout(action, params);
-        return result as R;
-      }
+    const maxAttempts = 1 + Math.max(0, action.retry ?? 0);
+    let lastError: Error | undefined;
 
-      // Execute without timeout (Requirements 6.6, 6.7, 6.8)
-      const result = await Promise.resolve(action.handler(params, this.context));
-      return result as R;
-    } catch (error) {
-      // Don't wrap timeout errors (Requirements 11.3, 11.5)
-      if (error instanceof ActionTimeoutError) {
-        this.logger.error(`Action "${id}" timed out`, error);
-        throw error;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      const runId = nextRunId();
+      const startedAt = Date.now();
+      const heapBefore = heapMb();
+
+      try {
+        let result: unknown;
+
+        if (action.timeout) {
+          result = await this.runWithTimeout(action, params);
+        } else {
+          result = await Promise.resolve(action.handler(params, this.context));
+        }
+
+        // Memory check (post-execution delta)
+        if (action.memoryLimitMb != null && heapBefore !== null) {
+          const heapAfter = heapMb()!;
+          const deltaMb = heapAfter - heapBefore;
+          if (deltaMb > action.memoryLimitMb) {
+            const memErr = new ActionMemoryError(id, action.memoryLimitMb, deltaMb);
+            this.emitTrace({ runId, actionId: id, input: params, output: undefined,
+              status: 'memory', durationMs: Date.now() - startedAt, startedAt,
+              error: memErr.message, attempt });
+            this.logger.error(`Action "${id}" exceeded memory limit`, memErr);
+            throw memErr;
+          }
+        }
+
+        this.emitTrace({ runId, actionId: id, input: params, output: result,
+          status: 'success', durationMs: Date.now() - startedAt, startedAt, attempt });
+        return result as R;
+
+      } catch (error) {
+        const durationMs = Date.now() - startedAt;
+
+        // Never retry timeout or memory errors
+        if (error instanceof ActionTimeoutError) {
+          this.emitTrace({ runId, actionId: id, input: params, output: undefined,
+            status: 'timeout', durationMs, startedAt, error: (error as Error).message, attempt });
+          this.logger.error(`Action "${id}" timed out`, error);
+          throw error;
+        }
+        if (error instanceof ActionMemoryError) {
+          throw error; // already emitted above
+        }
+
+        lastError = error as Error;
+        const status: TraceStatus = 'error';
+        this.emitTrace({ runId, actionId: id, input: params, output: undefined,
+          status, durationMs, startedAt, error: lastError.message, attempt });
+
+        if (attempt < maxAttempts) {
+          const delay = backoffMs(attempt);
+          this.logger.warn(`Action "${id}" failed (attempt ${attempt}/${maxAttempts}), retrying in ${delay}ms`);
+          await sleep(delay);
+        } else {
+          this.logger.error(`Action "${id}" execution failed`, lastError);
+          throw new ActionExecutionError(id, lastError);
+        }
       }
-      // Wrap other errors with contextual information (Requirements 3.1, 3.2, 3.3, 3.4, 3.5)
-      this.logger.error(`Action "${id}" execution failed`, error);
-      throw new ActionExecutionError(id, error as Error);
     }
+
+    // Unreachable, but satisfies TypeScript
+    throw new ActionExecutionError(id, lastError!);
+  }
+
+  private emitTrace(entry: TraceEntry): void {
+    this.onTrace?.(Object.freeze(entry));
   }
 
   /**
@@ -173,6 +249,17 @@ export class ActionEngine<TConfig = Record<string, unknown>> {
    */
   getAction(id: string): ActionDefinition<unknown, unknown, TConfig> | null {
     return this.actions.get(id) ?? null;
+  }
+
+  /**
+   * Checks whether an action with the given ID is registered.
+   * Safe to call at any time without throwing.
+   * 
+   * @param id - The action identifier
+   * @returns true if the action exists
+   */
+  hasAction(id: string): boolean {
+    return this.actions.has(id);
   }
 
   /**
