@@ -1,20 +1,35 @@
-# Skeleton Crew Runtime v0.4.0
+# Skeleton Crew Runtime v0.4.1
 
 **A minimal plugin runtime for building modular JavaScript applications.**
 
 Stop wiring up infrastructure. Start building features.
 
 ```bash
-npm install skeleton-crew-runtime@^0.4.0
+npm install skeleton-crew-runtime@^0.4.1
 ```
+## What's New in v0.4.1
+
+- **Plugin Hot-Swap (`runtime.swapPlugin()`)**: New method on `Runtime` that replaces a running plugin with a new version without restarting the runtime. Requires the new plugin to have the same name and a strictly higher semver version. Sequence: dispose old plugin → tear down all its registered resources (actions, screens, services) → run config validation → setup new plugin with resource tracking → emit `plugin:swapped` event. Rolls back on setup failure.
+- **`PluginSwapError`**: New error class thrown when a swap is rejected (plugin not initialized, version not an upgrade, or new plugin setup fails).
+- **`isNewerVersion(current, next)`**: Exported semver utility that returns `true` if `next` is strictly greater than `current`.
+
+**[→ Complete v0.4.1 Features](CHANGELOG.md#041---2026-03-22)**
 
 ## What's New in v0.4.0
  
-✅ **Browser Compatibility** - Native browser support with zero Node.js polyfills required  
-🔧 **Architecture** - Decoupled file system logic via Dependency Injection  
-📦 **Conditional Exports** - Automatic entry point resolution for Node.js vs Browser  
+### Added
+- **Action Retry**: New `retry` field on `ActionDefinition`. On failure, the action is retried up to `retry` times with exponential backoff (100ms, 200ms, 400ms…). Timeout and memory errors are never retried.
+- **Action Memory Limit**: New `memoryLimitMb` field on `ActionDefinition`. Measures heap delta before/after execution and throws `ActionMemoryError` if the limit is exceeded. No-op in browser environments where `process.memoryUsage` is unavailable.
+- **Execution Recorder (`ctx.trace`)**: New first-class observability API on `RuntimeContext`. Every action run produces a frozen `TraceEntry` with `runId`, `actionId`, `input`, `output`, `status`, `durationMs`, `startedAt`, `error`, and `attempt`. Accessible via `ctx.trace.getEntries()`, `ctx.trace.getEntriesFor(id)`, and `ctx.trace.clear()`. Capped at 1000 entries by default.
+- **`ActionMemoryError`**: New error class thrown when an action exceeds its `memoryLimitMb`.
+- **`ExecutionRecorderImpl`**: New exported class for the in-memory recorder implementation.
+- **Types**: `TraceEntry`, `TraceStatus`, `ExecutionRecorder`, `PluginSwapError` exported from the core package. `ActionMetadata` now includes `retry` and `memoryLimitMb` fields.
 
-**[→ Complete v0.4.0 Features](CHANGELOG.md#034---2026-01-24)**
+### Changed
+- **`ActionEngine` constructor**: Now accepts an optional `onTrace` callback for recording execution entries. Fully backward compatible — existing code passing only a logger is unaffected.
+- **`RuntimeContextImpl` constructor**: Now accepts an optional `ExecutionRecorderImpl` instance. Falls back to a standalone recorder when not provided (e.g. in tests).
+
+**[→ Complete v0.4.1 Features](CHANGELOG.md#040---2026-03-22)**
 
 ## What's New in v0.3.3
 

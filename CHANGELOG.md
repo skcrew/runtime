@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] - 2026-03-22
+
+- **Plugin Hot-Swap (`runtime.swapPlugin()`)**: New method on `Runtime` that replaces a running plugin with a new version without restarting the runtime. Requires the new plugin to have the same name and a strictly higher semver version. Sequence: dispose old plugin → tear down all its registered resources (actions, screens, services) → run config validation → setup new plugin with resource tracking → emit `plugin:swapped` event. Rolls back on setup failure.
+- **`PluginSwapError`**: New error class thrown when a swap is rejected (plugin not initialized, version not an upgrade, or new plugin setup fails).
+- **`isNewerVersion(current, next)`**: Exported semver utility that returns `true` if `next` is strictly greater than `current`.
+
 ## [0.4.0] - 2026-03-22
 
 ### Added
@@ -13,9 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Execution Recorder (`ctx.trace`)**: New first-class observability API on `RuntimeContext`. Every action run produces a frozen `TraceEntry` with `runId`, `actionId`, `input`, `output`, `status`, `durationMs`, `startedAt`, `error`, and `attempt`. Accessible via `ctx.trace.getEntries()`, `ctx.trace.getEntriesFor(id)`, and `ctx.trace.clear()`. Capped at 1000 entries by default.
 - **`ActionMemoryError`**: New error class thrown when an action exceeds its `memoryLimitMb`.
 - **`ExecutionRecorderImpl`**: New exported class for the in-memory recorder implementation.
-- **Types**: `TraceEntry`, `TraceStatus`, `ExecutionRecorder` exported from the core package. `ActionMetadata` now includes `retry` and `memoryLimitMb` fields.
+- **Types**: `TraceEntry`, `TraceStatus`, `ExecutionRecorder`, `PluginSwapError` exported from the core package. `ActionMetadata` now includes `retry` and `memoryLimitMb` fields.
 
 ### Changed
+- **`PluginRegistry`**: Now wraps each plugin's setup context in a tracked proxy that intercepts `registerAction`, `registerScreen`, and `services.register` calls, recording their unregister callbacks. On teardown (dispose or hot-swap), all tracked resources are cleaned up automatically in reverse registration order.
 - **`ActionEngine` constructor**: Now accepts an optional `onTrace` callback for recording execution entries. Fully backward compatible — existing code passing only a logger is unaffected.
 - **`RuntimeContextImpl` constructor**: Now accepts an optional `ExecutionRecorderImpl` instance. Falls back to a standalone recorder when not provided (e.g. in tests).
 
