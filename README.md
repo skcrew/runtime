@@ -1,20 +1,20 @@
-# Skeleton Crew Runtime v0.3.4
+# Skeleton Crew Runtime v0.4.0
 
 **A minimal plugin runtime for building modular JavaScript applications.**
 
 Stop wiring up infrastructure. Start building features.
 
 ```bash
-npm install skeleton-crew-runtime@^0.3.4
+npm install skeleton-crew-runtime@^0.4.0
 ```
 
-## What's New in v0.3.4
+## What's New in v0.4.0
  
 ✅ **Browser Compatibility** - Native browser support with zero Node.js polyfills required  
 🔧 **Architecture** - Decoupled file system logic via Dependency Injection  
 📦 **Conditional Exports** - Automatic entry point resolution for Node.js vs Browser  
 
-**[→ Complete v0.3.4 Features](CHANGELOG.md#034---2026-01-24)**
+**[→ Complete v0.4.0 Features](CHANGELOG.md#034---2026-01-24)**
 
 ## What's New in v0.3.3
 

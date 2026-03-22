@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-03-22
+
+### Added
+- **Action Retry**: New `retry` field on `ActionDefinition`. On failure, the action is retried up to `retry` times with exponential backoff (100ms, 200ms, 400ms…). Timeout and memory errors are never retried.
+- **Action Memory Limit**: New `memoryLimitMb` field on `ActionDefinition`. Measures heap delta before/after execution and throws `ActionMemoryError` if the limit is exceeded. No-op in browser environments where `process.memoryUsage` is unavailable.
+- **Execution Recorder (`ctx.trace`)**: New first-class observability API on `RuntimeContext`. Every action run produces a frozen `TraceEntry` with `runId`, `actionId`, `input`, `output`, `status`, `durationMs`, `startedAt`, `error`, and `attempt`. Accessible via `ctx.trace.getEntries()`, `ctx.trace.getEntriesFor(id)`, and `ctx.trace.clear()`. Capped at 1000 entries by default.
+- **`ActionMemoryError`**: New error class thrown when an action exceeds its `memoryLimitMb`.
+- **`ExecutionRecorderImpl`**: New exported class for the in-memory recorder implementation.
+- **Types**: `TraceEntry`, `TraceStatus`, `ExecutionRecorder` exported from the core package. `ActionMetadata` now includes `retry` and `memoryLimitMb` fields.
+
+### Changed
+- **`ActionEngine` constructor**: Now accepts an optional `onTrace` callback for recording execution entries. Fully backward compatible — existing code passing only a logger is unaffected.
+- **`RuntimeContextImpl` constructor**: Now accepts an optional `ExecutionRecorderImpl` instance. Falls back to a standalone recorder when not provided (e.g. in tests).
+
 ## [0.3.4] - 2026-01-24
 
 ### Fixed
