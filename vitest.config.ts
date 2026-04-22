@@ -8,13 +8,7 @@ export default defineConfig({
     exclude: ['**/node_modules/**', '**/dist/**', 'demo/**', 'example/**'],
     // Performance optimizations
     pool: 'threads',
-    poolOptions: {
-      threads: {
-        singleThread: false,
-        minThreads: 1,
-        maxThreads: 4
-      }
-    },
+    maxWorkers: 1,
     // Optimize for CI/local development
     reporter: process.env.CI ? 'dot' : 'default',
     // Reduce memory usage for property tests
